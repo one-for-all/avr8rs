@@ -1,0 +1,14 @@
+use crate::cpu::CPU;
+
+pub enum AVRClockEventType {
+    Count,
+}
+
+pub type AVRClockEventCallback = Box<dyn Fn(&mut CPU, bool, bool)>;
+
+pub struct AVRClockEventEntry {
+    pub cycles: u32,
+    pub callback: AVRClockEventCallback,
+    pub event_type: AVRClockEventType,
+    pub next: Option<Box<AVRClockEventEntry>>,
+}
