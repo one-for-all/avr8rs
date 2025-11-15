@@ -32,7 +32,7 @@ fn main() {
 
     let mut s = 0;
     while s < n_steps {
-        // print!("cycle: {} ", s);
+        println!("cycle: {} ", s);
 
         let cycles = runner.cpu.cycles;
         runner.step();

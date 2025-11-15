@@ -1,31 +1,45 @@
-/*---------------------------------------*\
-| Simple direct drive of Bipolar Stepper  |
-\*---------------------------------------*/
+#include <AccelStepper.h>
 
-// pins connected
-#define Ap 10  // A+ line
-#define Am 11  // A- line
-#define Bp 9   //  .
-#define Bm 8   //
+// Define the stepper motor connections
+#define dirPin 2  // Direction
+#define stepPin 3 // Step
 
-void setup() {
-  pinMode(Ap,OUTPUT);  pinMode(Am,OUTPUT);
-  pinMode(Bp,OUTPUT);  pinMode(Bm,OUTPUT);
+// Create an instance of the AccelStepper class
+AccelStepper stepper(AccelStepper::DRIVER, stepPin, dirPin, 0, 0, false);
+
+// #define stepsPerRevolution 200 * 8 // 200 steps per revolution * 8 microsteps
+
+void setup()
+{
+    // // Set the maximum speed and acceleration
+    // stepper.setMaxSpeed(20000);
+    // stepper.setAcceleration(10000);
+
+    // // Set the enable pin for the stepper motor driver and
+    // // invert it because we are using a DRV8825 board with an
+    // // active-low enable signal (LOW = enabled, HIGH = disabled)
+    // stepper.setEnablePin(5);
+    // stepper.setPinsInverted(false, false, true);
+
+    // // Set the initial position
+    // stepper.setCurrentPosition(0);
+
+    // // Enable the motor outputs
+    // stepper.enableOutputs();
 }
 
-int ms = 10;
-// int I = 0 ;
-void loop() {
+void loop()
+{
+    // // Move the motor 1/4 of a revolution
+    // stepper.runToNewPosition(stepsPerRevolution / 4);
 
-  // This is Wave Fullstep motion - only one coil energized at a time
-  // if ( I++ <25 ) {  // stop after 25*4 steps (=100) - quarter turn with gearRatio "2:1"
-    digitalWrite(Bm,LOW) ;  digitalWrite(Ap,HIGH);
-    delay(ms);
-    digitalWrite(Ap,LOW) ;  digitalWrite(Bp,HIGH);
-    delay(ms);
-    digitalWrite(Bp,LOW) ;  digitalWrite(Am,HIGH);
-    delay(ms);
-    digitalWrite(Am,LOW) ;  digitalWrite(Bm,HIGH);
-    delay(ms);
-    // } else while(1);
+    // // Wait for 1 second
+    // delay(1000);
+
+    // // Move the motor back 1/4 of a revolution
+    // // Serial.println("Moving motor back 1/4 of a revolution");
+    // stepper.runToNewPosition(-stepsPerRevolution / 4);
+
+    // // Wait for 1 second
+    // delay(1000);
 }

@@ -97,6 +97,15 @@ pub fn avr_instruction(cpu: &mut CPU) {
         instructions::Instruction::BCLR => {
             cpu.data[95] &= !(1 << ((opcode & 0x70) >> 4));
         }
+        instructions::Instruction::BLD => {
+            /* BLD, 1111 100d dddd 0bbb */
+            let b = opcode & 7;
+            let d = (opcode & 0x1f0) >> 4;
+            cpu.set_data(
+                d,
+                (!(1 << b) & cpu.get_data(d)) | (((cpu.data[95] >> 6) & 1) << b),
+            );
+        }
         instructions::Instruction::BRBC => {
             /* BRBC, 1111 01kk kkkk ksss */
             if (cpu.data[95] & (1 << (opcode & 7))) == 0 {
@@ -116,6 +125,12 @@ pub fn avr_instruction(cpu: &mut CPU) {
         instructions::Instruction::BSET => {
             /* BSET, 1001 0100 0sss 1000 */
             cpu.data[95] |= 1 << ((opcode & 0x70) >> 4);
+        }
+        instructions::Instruction::BST => {
+            /* BST, 1111 101d dddd 0bbb */
+            let d = cpu.get_data((opcode & 0x1f0) >> 4);
+            let b = opcode & 7;
+            cpu.data[95] = (cpu.data[95] & 0xbf) | (ternary!((d >> b) & 1, 0x40, 0));
         }
         instructions::Instruction::CALL => {
             /* CALL, 1001 010k kkkk 111k kkkk kkkk kkkk kkkk */
@@ -223,6 +238,20 @@ pub fn avr_instruction(cpu: &mut CPU) {
             sreg |= ternary!(((sreg >> 2) & 1) ^ ((sreg >> 3) & 1), 0x10, 0);
             cpu.data[95] = sreg;
         }
+        instructions::Instruction::ELPM_INC => {
+            /* ELPM(INC), 1001 000d dddd 0111 */
+            let rampz = cpu.data[0x5b] as u32;
+            let i = cpu.get_data_u16(30);
+            cpu.set_data(
+                (opcode & 0x1f0) >> 4,
+                cpu.prog_bytes[((rampz << 16) | (i as u32)) as usize],
+            );
+            cpu.set_data_u16(30, i + 1);
+            if i == 0xffff {
+                cpu.data[0x5b] = ((rampz + 1) % ((cpu.prog_bytes.len() >> 16) as u32)) as u8;
+            }
+            cpu.cycles += 2;
+        }
         instructions::Instruction::EOR => {
             /* EOR, 0010 01rd dddd rrrr */
             let R = cpu.get_data((opcode & 0x1f0) >> 4)
@@ -233,6 +262,11 @@ pub fn avr_instruction(cpu: &mut CPU) {
             sreg |= ternary!(128 & R, 4, 0);
             sreg |= ternary!(((sreg >> 2) & 1) ^ ((sreg >> 3) & 1), 0x10, 0);
             cpu.data[95] = sreg;
+        }
+        instructions::Instruction::IJMP => {
+            /* IJMP, 1001 0100 0000 1001 */
+            cpu.pc = cpu.get_data_u16(30) as u32 - 1;
+            cpu.cycles += 1;
         }
         instructions::Instruction::IN => {
             /* IN, 1011 0AAd dddd AAAA */
@@ -279,6 +313,14 @@ pub fn avr_instruction(cpu: &mut CPU) {
             let data = cpu.read_data(cpu.get_data_u16(26));
             cpu.set_data((opcode & 0x1f0) >> 4, data);
         }
+        instructions::Instruction::LDDY => {
+            /* LDDY, 10q0 qq0d dddd 1qqq */
+            cpu.cycles += 1;
+            let addr = cpu.get_data_u16(28)
+                + ((opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8));
+            let data = cpu.read_data(addr);
+            cpu.set_data((opcode & 0x1f0) >> 4, data);
+        }
         instructions::Instruction::LDZ_INC => {
             /* LDZ(INC), 1001 000d dddd 0001 */
             let z = cpu.get_data_u16(30);
@@ -301,6 +343,18 @@ pub fn avr_instruction(cpu: &mut CPU) {
             cpu.set_data((opcode & 0x1f0) >> 4, cpu.prog_bytes[i as usize]);
             cpu.set_data_u16(30, i + 1);
             cpu.cycles += 2;
+        }
+        instructions::Instruction::LSR => {
+            /* LSR, 1001 010d dddd 0110 */
+            let value = cpu.get_data((opcode & 0x1f0) >> 4);
+            let R = value >> 1;
+            cpu.set_data((opcode & 0x1f0) >> 4, R);
+            let mut sreg = cpu.data[95] & 0xe0;
+            sreg |= ternary!(R, 0, 2);
+            sreg |= value & 1;
+            sreg |= ternary!(((sreg >> 2) & 1) ^ (sreg & 1), 8, 0);
+            sreg |= ternary!(((sreg >> 2) & 1) ^ ((sreg >> 3) & 1), 0x10, 0);
+            cpu.data[95] = sreg;
         }
         instructions::Instruction::MOV => {
             /* MOV, 0010 11rd dddd rrrr */
@@ -384,6 +438,19 @@ pub fn avr_instruction(cpu: &mut CPU) {
             cpu.pc = cpu.pc + (opcode & 0x7ff) as u32 - ternary!(opcode & 0x800, 0x800, 0);
             cpu.cycles += 1;
         }
+        instructions::Instruction::ROR => {
+            /* ROR, 1001 010d dddd 0111 */
+            let d = cpu.get_data((opcode & 0x1f0) >> 4);
+            let r = (d >> 1) | ((cpu.data[95] & 1) << 7);
+            cpu.set_data((opcode & 0x1f0) >> 4, r);
+            let mut sreg = cpu.data[95] & 0xe0;
+            sreg |= ternary!(r, 0, 2);
+            sreg |= ternary!(128 & r, 4, 0);
+            sreg |= ternary!(1 & d, 1, 0);
+            sreg |= ternary!(((sreg >> 2) & 1) ^ (sreg & 1), 8, 0);
+            sreg |= ternary!(((sreg >> 2) & 1) ^ ((sreg >> 3) & 1), 0x10, 0);
+            cpu.data[95] = sreg;
+        }
         instructions::Instruction::SBC => {
             /* SBC, 0000 10rd dddd rrrr */
             let val1 = cpu.get_data((opcode & 0x1f0) >> 4);
@@ -466,6 +533,19 @@ pub fn avr_instruction(cpu: &mut CPU) {
             sreg |= ternary!(((sreg >> 2) & 1) ^ ((sreg >> 3) & 1), 0x10, 0);
             cpu.data[95] = sreg;
         }
+        instructions::Instruction::SBRC => {
+            /* SBRC, 1111 110r rrrr 0bbb */
+            if cpu.get_data((opcode & 0x1f0) >> 4) & (1 << (opcode & 7)) == 0 {
+                let next_opcode = cpu.prog_mem[(cpu.pc + 1) as usize];
+                let skip_size = if is_two_word_instruction(next_opcode) {
+                    2
+                } else {
+                    1
+                };
+                cpu.cycles += skip_size;
+                cpu.pc += skip_size;
+            }
+        }
         instructions::Instruction::STS => {
             /* STS, 1001 001d dddd 0000 kkkk kkkk kkkk kkkk */
             let value = cpu.get_data((opcode & 0x1f0) >> 4);
@@ -484,6 +564,15 @@ pub fn avr_instruction(cpu: &mut CPU) {
             let x = cpu.get_data_u16(26);
             cpu.write_data(x, cpu.get_data((opcode & 0x1f0) >> 4));
             cpu.set_data_u16(26, x + 1);
+            cpu.cycles += 1;
+        }
+        instructions::Instruction::STDY => {
+            /* STDY, 10q0 qq1r rrrr 1qqq */
+            cpu.write_data(
+                cpu.get_data_u16(28)
+                    + ((opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8)),
+                cpu.get_data((opcode & 0x1f0) >> 4),
+            );
             cpu.cycles += 1;
         }
         instructions::Instruction::SUB => {

@@ -8,9 +8,11 @@ pub enum Instruction {
     ANDI,
     ASR,
     BCLR,
+    BLD,
     BRBC,
     BRBS,
     BSET,
+    BST,
     CALL,
     COM,
     CP,
@@ -18,16 +20,20 @@ pub enum Instruction {
     CPSE,
     CPI,
     DEC,
+    ELPM_INC,
     EOR,
+    IJMP,
     IN,
     INC,
     JMP,
     LDI,
     LDS,
     LDX,
+    LDDY,
     LDZ_INC,
     LPM_REG,
     LPM_INC,
+    LSR,
     MOV,
     MOVW,
     MUL,
@@ -38,14 +44,17 @@ pub enum Instruction {
     RET,
     RETI,
     RJMP,
+    ROR,
     SBC,
     SBCI,
     SBIS,
     SBIW,
     SBR,
+    SBRC,
     STS,
     STX,
     STX_INC,
+    STDY,
     SUB,
     SUBI,
 }
@@ -68,12 +77,16 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::ASR
     } else if opcode & 0xff8f == 0x9488 {
         Instruction::BCLR
+    } else if opcode & 0xfe08 == 0xf800 {
+        Instruction::BLD
     } else if opcode & 0xfc00 == 0xf400 {
         Instruction::BRBC
     } else if opcode & 0xfc00 == 0xf000 {
         Instruction::BRBS
     } else if opcode & 0xff8f == 0x9408 {
         Instruction::BSET
+    } else if opcode & 0xfe08 == 0xfa00 {
+        Instruction::BST
     } else if opcode & 0xfe0e == 0x940e {
         Instruction::CALL
     } else if opcode & 0xfe0f == 0x9400 {
@@ -88,8 +101,12 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::CPI
     } else if opcode & 0xfe0f == 0x940a {
         Instruction::DEC
+    } else if opcode & 0xfe0f == 0x9007 {
+        Instruction::ELPM_INC
     } else if opcode & 0xfc00 == 0x2400 {
         Instruction::EOR
+    } else if opcode == 0x9409 {
+        Instruction::IJMP
     } else if opcode & 0xf800 == 0xb000 {
         Instruction::IN
     } else if opcode & 0xfe0f == 0x9403 {
@@ -102,12 +119,18 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::LDS
     } else if opcode & 0xfe0f == 0x900c {
         Instruction::LDX
+    } else if opcode & 0xd208 == 0x8008
+        && (opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8) != 0
+    {
+        Instruction::LDDY
     } else if opcode & 0xfe0f == 0x9001 {
         Instruction::LDZ_INC
     } else if opcode & 0xfe0f == 0x9004 {
         Instruction::LPM_REG
     } else if opcode & 0xfe0f == 0x9005 {
         Instruction::LPM_INC
+    } else if opcode & 0xfe0f == 0x9406 {
+        Instruction::LSR
     } else if opcode & 0xfc00 == 0x2c00 {
         Instruction::MOV
     } else if opcode & 0xff00 == 0x100 {
@@ -128,6 +151,8 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::RETI
     } else if opcode & 0xf000 == 0xc000 {
         Instruction::RJMP
+    } else if opcode & 0xfe0f == 0x9407 {
+        Instruction::ROR
     } else if opcode & 0xfc00 == 0x800 {
         Instruction::SBC
     } else if opcode & 0xf000 == 0x4000 {
@@ -138,12 +163,18 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::SBIW
     } else if opcode & 0xf000 == 0x6000 {
         Instruction::SBR
+    } else if opcode & 0xfe08 == 0xfc00 {
+        Instruction::SBRC
     } else if opcode & 0xfe0f == 0x9200 {
         Instruction::STS
     } else if opcode & 0xfe0f == 0x920c {
         Instruction::STX
     } else if opcode & 0xfe0f == 0x920d {
         Instruction::STX_INC
+    } else if opcode & 0xd208 == 0x8208
+        && (opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8) != 0
+    {
+        Instruction::STDY
     } else if opcode & 0xfc00 == 0x1800 {
         Instruction::SUB
     } else if opcode & 0xf000 == 0x5000 {
