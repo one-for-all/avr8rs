@@ -8,10 +8,11 @@ pub enum PinState {
     InputPullUp,
 }
 
+#[allow(non_snake_case)]
 pub struct AVRPortConfig {
-    pub pin: u8,
-    pub ddr: u8,
-    pub port: u8,
+    pub PIN: u8,
+    pub DDR: u8,
+    pub PORT: u8,
 }
 
 pub struct AVRIOPort {
@@ -73,8 +74,44 @@ impl AVRIOPort {
     }
 }
 
-pub const PORT_B_CONFIG: AVRPortConfig = AVRPortConfig {
-    pin: 0x23,
-    ddr: 0x24,
-    port: 0x25,
+pub const PORTB_CONFIG: AVRPortConfig = AVRPortConfig {
+    PIN: 0x23,
+    DDR: 0x24,
+    PORT: 0x25,
 };
+
+pub const PORTC_CONFIG: AVRPortConfig = AVRPortConfig {
+    PIN: 0x26,
+    DDR: 0x27,
+    PORT: 0x28,
+};
+
+pub const PORTD_CONFIG: AVRPortConfig = AVRPortConfig {
+    PIN: 0x29,
+    DDR: 0x2a,
+    PORT: 0x2b,
+};
+
+#[cfg(test)]
+mod port_tests {
+    use crate::{
+        cpu::CPU,
+        port::{PORTB_CONFIG, PORTD_CONFIG, PinState},
+    };
+
+    #[test]
+    fn default_pin_input() {
+        let cpu = CPU::new(vec![0; 1024]);
+        assert!(matches!(cpu.pin_state("B", 0), PinState::Input));
+    }
+
+    #[test]
+    fn set_pin() {
+        let mut cpu = CPU::new(vec![0; 1024]);
+
+        cpu.write_data(PORTD_CONFIG.DDR as u16, 0x2, 0xff);
+        cpu.write_data(PORTD_CONFIG.PORT as u16, 0x2, 0xff);
+
+        assert!(matches!(cpu.pin_state("D", 1), PinState::High));
+    }
+}
