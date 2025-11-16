@@ -7,39 +7,62 @@
 // Create an instance of the AccelStepper class
 AccelStepper stepper(AccelStepper::DRIVER, stepPin, dirPin, 0, 0, false);
 
-// #define stepsPerRevolution 200 * 8 // 200 steps per revolution * 8 microsteps
+#define stepsPerRevolution 200 * 8 // 200 steps per revolution * 8 microsteps
+
+// float _speed = 1.0;
+// float _acceleration = 1.0;
+
+// float _cn = 1.0;
 
 void setup()
 {
-    // // Set the maximum speed and acceleration
+    // DDRD |= 0b00001000;
+    // DDRB |= 0b00001000;
+
+    // Set the maximum speed and acceleration
+    stepper.setMaxSpeed(20000);
+    stepper.setAcceleration(10000);
     // stepper.setMaxSpeed(20000);
-    // stepper.setAcceleration(10000);
+    // stepper.setAcceleration(200);
 
-    // // Set the enable pin for the stepper motor driver and
-    // // invert it because we are using a DRV8825 board with an
-    // // active-low enable signal (LOW = enabled, HIGH = disabled)
-    // stepper.setEnablePin(5);
-    // stepper.setPinsInverted(false, false, true);
+    // Set the enable pin for the stepper motor driver and
+    // invert it because we are using a DRV8825 board with an
+    // active-low enable signal (LOW = enabled, HIGH = disabled)
+    stepper.setEnablePin(5);
+    stepper.setPinsInverted(false, false, true);
 
-    // // Set the initial position
-    // stepper.setCurrentPosition(0);
+    // Set the initial position
+    stepper.setCurrentPosition(0);
 
-    // // Enable the motor outputs
-    // stepper.enableOutputs();
+    // Enable the motor outputs
+    stepper.enableOutputs();
+
+    // if ((sqrt(0.02) - 0.1414213562373095) < 0.00000001)  {
+    //     PORTD |= 0b00001000;
+    //     PORTD &= ~0b00001000;
+    // }
+    stepper.runToNewPosition(84);
+
+    // float result = (2.0 - _cn);
+
+    // // DDRB = 0b11111111;
+
+    // // float result = 1.0;
+    // uint32_t* bits = (uint32_t*)&result;
+    // DDRC = (*bits) >> 24;
+    // PINC = (*bits) >> 16;
+    // DDRD = (*bits) >> 8;
+    // PIND = (*bits);
+
+    // uint8_t x = result;
+    // if (x == 1) {
+    //     DDRB |= 0b00001000;
+    //     PORTB |= 0b00001000;
+    //     PORTB &= ~0b00001000;
+    // }
+    // _cn += 0.0;
 }
 
 void loop()
 {
-    // // Move the motor 1/4 of a revolution
-    // stepper.runToNewPosition(stepsPerRevolution / 4);
-
-    // // Wait for 1 second
-    // delay(1000);
-
-    // // Move the motor back 1/4 of a revolution
-    // // Serial.println("Moving motor back 1/4 of a revolution");
-    // stepper.runToNewPosition(-stepsPerRevolution / 4);
-
-    // // Wait for 1 second
-    // delay(1000);
 }

@@ -6,8 +6,9 @@ use std::{
 
 use avr8rs::{
     Float,
-    cpu::CPU,
+    cpu::{self, CPU},
     plot::plot,
+    port::{PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
     program::load_hex,
     runner::AVRRunner,
     stepper::{Stepper, StepperVoltages},
@@ -24,51 +25,71 @@ fn main() {
     let mut stepper = Stepper::new();
 
     let mut data = vec![];
+    let mut data2 = vec![];
 
-    let final_time = 100e-3; //2e-5; //
+    let final_time = 0.2; //2e-5; //
     let Hz = 16e6; // 16 MHz
     let dt = 1. / Hz;
     let n_steps = (final_time / dt) as usize;
 
     let mut s = 0;
+    let mut PD = 0.;
+    let mut PB = 0.;
+    let mut count = 0;
     while s < n_steps {
-        println!("cycle: {} ", s);
+        // print!("cycle: {} ", s);
 
         let cycles = runner.cpu.cycles;
         runner.step();
         let delta_cycles = (runner.cpu.cycles - cycles) as usize;
 
-        let ap = get_voltage(&runner.cpu, 2);
-        let am = get_voltage(&runner.cpu, 3);
-        let bp = get_voltage(&runner.cpu, 1);
-        let bm = get_voltage(&runner.cpu, 0);
+        // let ap = get_voltage(&runner.cpu, 2);
+        // let am = get_voltage(&runner.cpu, 3);
+        // let bp = get_voltage(&runner.cpu, 1);
+        // let bm = get_voltage(&runner.cpu, 0);
 
-        let voltages = StepperVoltages { ap, am, bp, bm };
+        // let voltages = StepperVoltages { ap, am, bp, bm };
         for _ in 0..delta_cycles {
-            stepper.step_voltage(dt, &voltages);
-            data.push(stepper.theta);
+            // stepper.step_voltage(dt, &voltages);
+
+            let new_PD = get_voltage(&runner.cpu, "D", 3);
+            data.push(new_PD);
+            if PD == 0. && new_PD == 1. {
+                println!("step: {}", s);
+                count += 1;
+            }
+            PD = new_PD;
+
+            let new_PB = get_voltage(&runner.cpu, "B", 3);
+            // if PB == 0. && new_PB == 1. {
+            //     println!("step: {}", s);
+            // }
+            data2.push(new_PB);
+            PB = new_PB;
         }
 
-        let count = runner.cpu.timer0.tcnt;
-        // println!("time: {} count", count);
-
-        // for _ in 0..delta_cycles {
-        //     // data.push(count as Float);
-
-        //     data.push(bm);
-        //     // data.push(runner.cpu.get_data(0x6e as u16) as Float);
-        //     // data.push(runner.cpu.next_interrupt as Float);
-        // }
+        if runner.cpu.data[PORTB_CONFIG.DDR as usize] == 0b11111111 {
+            println!("finished");
+            return;
+        }
 
         s += delta_cycles;
     }
 
-    // println!("PB0: {:?}", runner.cpu.port_b_pin_state(0));
-    plot(&data, final_time, dt, n_steps, "PB0");
+    println!("step count: {}", count);
+    println!("PD3: {:?}", get_voltage(&runner.cpu, "D", 3));
+
+    // println!("DDRC: {:08b}", runner.cpu.data[PORTC_CONFIG.DDR as usize]);
+    // println!("PINC: {:08b}", runner.cpu.data[PORTC_CONFIG.PIN as usize]);
+    // println!("DDRD: {:08b}", runner.cpu.data[PORTD_CONFIG.DDR as usize]);
+    // println!("PIND: {:08b}", runner.cpu.data[PORTD_CONFIG.PIN as usize]);
+
+    plot(&data, final_time, dt, n_steps, "PD3");
+    plot(&data2, final_time, dt, n_steps, "PB3");
 }
 
-fn get_voltage(cpu: &CPU, i: u8) -> Float {
-    match cpu.port_b_pin_state(i) {
+fn get_voltage(cpu: &CPU, key: &str, i: u8) -> Float {
+    match cpu.pin_state(key, i) {
         avr8rs::port::PinState::Low => 0.,
         avr8rs::port::PinState::High => 1.,
         _ => 0.,
