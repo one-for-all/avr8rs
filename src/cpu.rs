@@ -1,8 +1,8 @@
-use std::{collections::HashMap, os::raw::c_uchar};
+use std::collections::HashMap;
 
 use crate::{
-    clock::{self, AVRClockEventCallback, AVRClockEventEntry, AVRClockEventType},
-    interrupt::{self, AVRInterruptConfig, MAX_INTERRUPTS, avr_interrupt},
+    clock::{AVRClockEventCallback, AVRClockEventEntry, AVRClockEventType},
+    interrupt::{AVRInterruptConfig, MAX_INTERRUPTS, avr_interrupt},
     port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG, PinState},
     ternary,
     timer::{AVRTimer, OCRUpdateMode, TIMER_0_CONFIG},

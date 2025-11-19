@@ -41,7 +41,7 @@ void setup()
     //     PORTD |= 0b00001000;
     //     PORTD &= ~0b00001000;
     // }
-    stepper.runToNewPosition(84);
+    stepper.runToNewPosition(40);
 
     // float result = (2.0 - _cn);
 

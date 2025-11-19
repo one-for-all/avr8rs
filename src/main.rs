@@ -11,7 +11,7 @@ use avr8rs::{
     port::{PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
     program::load_hex,
     runner::AVRRunner,
-    stepper::{Stepper, StepperVoltages},
+    stepper::{Stepper, StepperVoltages, driver::StepperDriver},
 };
 
 fn main() {
@@ -23,6 +23,7 @@ fn main() {
     let mut runner = AVRRunner::new(&buf);
 
     let mut stepper = Stepper::new();
+    let mut driver = StepperDriver::new();
 
     let mut data = vec![];
     let mut data2 = vec![];
@@ -36,6 +37,9 @@ fn main() {
     let mut PD = 0.;
     let mut PB = 0.;
     let mut count = 0;
+
+    let mut motor_s = 0;
+
     while s < n_steps {
         // print!("cycle: {} ", s);
 
@@ -52,6 +56,8 @@ fn main() {
         for _ in 0..delta_cycles {
             // stepper.step_voltage(dt, &voltages);
 
+            driver.step(runner.cpu.pin_state("D", 3));
+
             let new_PD = get_voltage(&runner.cpu, "D", 3);
             data.push(new_PD);
             if PD == 0. && new_PD == 1. {
@@ -60,12 +66,12 @@ fn main() {
             }
             PD = new_PD;
 
-            let new_PB = get_voltage(&runner.cpu, "B", 3);
-            // if PB == 0. && new_PB == 1. {
-            //     println!("step: {}", s);
-            // }
-            data2.push(new_PB);
-            PB = new_PB;
+            // let new_PB = get_voltage(&runner.cpu, "B", 3);
+            // // if PB == 0. && new_PB == 1. {
+            // //     println!("step: {}", s);
+            // // }
+            // data2.push(new_PB);
+            // PB = new_PB;
         }
 
         if runner.cpu.data[PORTB_CONFIG.DDR as usize] == 0b11111111 {
@@ -74,8 +80,18 @@ fn main() {
         }
 
         s += delta_cycles;
+
+        if s % 100 == 0 {
+            let currents = driver.currents();
+            stepper.step(dt * (s - motor_s) as Float, currents.0, currents.1, 0.1);
+            for _ in 0..s - motor_s {
+                data2.push(stepper.theta);
+            }
+            motor_s = s;
+        }
     }
 
+    println!("theta: {}", stepper.theta);
     println!("step count: {}", count);
     println!("PD3: {:?}", get_voltage(&runner.cpu, "D", 3));
 

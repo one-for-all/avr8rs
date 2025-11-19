@@ -1,5 +1,7 @@
 use crate::Float;
 
+pub mod driver;
+
 const KT: Float = 1.0;
 const J: Float = 5.4e-5; // rotor inertia
 const B: Float = 5e-2; // 2e-2 // viscous friction coefficient [N*m*s/rad]
