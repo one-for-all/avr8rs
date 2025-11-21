@@ -6,6 +6,7 @@ use crate::{
     port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG, PinState},
     ternary,
     timer::{AVRTimer, OCRUpdateMode, TIMER_0_CONFIG},
+    usart::{AVRUSART, UCSRB_TXEN, USART0_CONFIG},
 };
 
 const SRAM_BYTES: usize = 8192;
@@ -33,6 +34,8 @@ pub struct CPU {
 
     pub timer0: AVRTimer,
 
+    pub usart: AVRUSART,
+
     pub next_interrupt: i16,
     max_interrupt: i16,
 }
@@ -59,6 +62,8 @@ impl CPU {
             (port_keys[2].to_string(), AVRIOPort::new(PORTD_CONFIG)),
         ]);
 
+        let usart = AVRUSART::new(USART0_CONFIG);
+
         let mut cpu = Self {
             data: vec![0; SRAM_BYTES + REGISTER_SPACE],
             prog_mem,
@@ -72,6 +77,7 @@ impl CPU {
             pc_22_bits,
             ports,
             timer0,
+            usart,
             next_interrupt: -1,
             max_interrupt: 0,
         };
@@ -176,6 +182,48 @@ impl CPU {
                 }),
             );
         }
+
+        cpu.write_hooks.insert(
+            cpu.usart.config.UCSRB as u16,
+            Box::new(|cpu, value, old_value, _, _| {
+                // cpu.update_interrupt_enable(cpu.usart.rxc, value);
+                cpu.update_interrupt_enable(cpu.usart.udre, value);
+                cpu.update_interrupt_enable(cpu.usart.txc, value);
+                // if value & UCSRB_RXEN && old_value & UCSRB_RXEN {
+                //     cpu.clear_interrupt(cpu.usart.rxc, true);
+                // }
+                if value & UCSRB_TXEN != 0 && old_value & UCSRB_TXEN == 0 {
+                    // Enabling the transmission - mark UDR as empty
+                    cpu.set_interrupt_flag(cpu.usart.udre);
+                }
+                cpu.data[cpu.usart.config.UCSRB as usize] = value;
+                // cpu.onConfigurationChange
+
+                true
+            }),
+        );
+
+        cpu.write_hooks.insert(
+            cpu.usart.config.UDR as u16,
+            Box::new(|cpu, value, _, _, _| {
+                println!("usart: {}", str::from_utf8(&[value]).unwrap());
+
+                cpu.add_clock_event(
+                    Box::new(|cpu: &mut CPU, _, _| {
+                        cpu.set_interrupt_flag(cpu.usart.udre);
+                        cpu.set_interrupt_flag(cpu.usart.txc);
+                    }),
+                    cpu.cycles_per_char(),
+                    AVRClockEventType::USART,
+                );
+                let txc = cpu.usart.txc.clone();
+                cpu.clear_interrupt(&txc, true);
+                let urde = cpu.usart.udre.clone();
+                cpu.clear_interrupt(&urde, true);
+
+                false
+            }),
+        );
 
         cpu
     }

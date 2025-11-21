@@ -33,6 +33,7 @@ pub enum Instruction {
     LDX,
     LDX_INC,
     LDY,
+    LDY_INC,
     LDDY,
     LDZ,
     LDZ_INC,
@@ -64,7 +65,10 @@ pub enum Instruction {
     STS,
     STX,
     STX_INC,
+    STX_DEC,
     STDY,
+    STZ,
+    STDZ,
     SUB,
     SUBI,
 }
@@ -137,6 +141,8 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::LDX_INC
     } else if opcode & 0xfe0f == 0x8008 {
         Instruction::LDY
+    } else if opcode & 0xfe0f == 0x9009 {
+        Instruction::LDY_INC
     } else if opcode & 0xd208 == 0x8008
         && (opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8) != 0
     {
@@ -203,10 +209,18 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::STX
     } else if opcode & 0xfe0f == 0x920d {
         Instruction::STX_INC
+    } else if opcode & 0xfe0f == 0x920e {
+        Instruction::STX_DEC
     } else if opcode & 0xd208 == 0x8208
         && (opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8) != 0
     {
         Instruction::STDY
+    } else if opcode & 0xfe0f == 0x8200 {
+        Instruction::STZ
+    } else if (opcode & 0xd208) == 0x8200
+        && (opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8) != 0
+    {
+        Instruction::STDZ
     } else if opcode & 0xfc00 == 0x1800 {
         Instruction::SUB
     } else if opcode & 0xf000 == 0x5000 {

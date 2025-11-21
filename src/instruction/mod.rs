@@ -362,6 +362,14 @@ pub fn avr_instruction(cpu: &mut CPU) {
             let data = cpu.read_data(cpu.get_data_u16(28));
             cpu.set_data((opcode & 0x1f0) >> 4, data);
         }
+        instructions::Instruction::LDY_INC => {
+            /* LDY(INC), 1001 000d dddd 1001 */
+            let y = cpu.get_data_u16(28);
+            cpu.cycles += 1;
+            let data = cpu.read_data(y);
+            cpu.set_data((opcode & 0x1f0) >> 4, data);
+            cpu.set_data_u16(28, y + 1);
+        }
         instructions::Instruction::LDDY => {
             /* LDDY, 10q0 qq0d dddd 1qqq */
             cpu.cycles += 1;
@@ -689,10 +697,37 @@ pub fn avr_instruction(cpu: &mut CPU) {
             cpu.set_data_u16(26, x + 1);
             cpu.cycles += 1;
         }
+        instructions::Instruction::STX_DEC => {
+            /* STX(DEC), 1001 001r rrrr 1110 */
+            let i = cpu.get_data((opcode & 0x1f0) >> 4);
+            let x = cpu.get_data_u16(26) - 1;
+            cpu.set_data_u16(26, x);
+            cpu.write_data(x, i, 0xff);
+            cpu.cycles += 1;
+        }
         instructions::Instruction::STDY => {
             /* STDY, 10q0 qq1r rrrr 1qqq */
             cpu.write_data(
                 cpu.get_data_u16(28)
+                    + ((opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8)),
+                cpu.get_data((opcode & 0x1f0) >> 4),
+                0xff,
+            );
+            cpu.cycles += 1;
+        }
+        instructions::Instruction::STZ => {
+            /* STZ, 1000 001r rrrr 0000 */
+            cpu.write_data(
+                cpu.get_data_u16(30),
+                cpu.get_data((opcode & 0x1f0) >> 4),
+                0xff,
+            );
+            cpu.cycles += 1;
+        }
+        instructions::Instruction::STDZ => {
+            /* STDZ, 10q0 qq1r rrrr 0qqq */
+            cpu.write_data(
+                cpu.get_data_u16(30)
                     + ((opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8)),
                 cpu.get_data((opcode & 0x1f0) >> 4),
                 0xff,

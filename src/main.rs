@@ -25,10 +25,10 @@ fn main() {
     let mut stepper = Stepper::new();
     let mut driver = StepperDriver::new();
 
-    let mut data = vec![];
+    let mut data: Vec<Float> = vec![];
     let mut data2 = vec![];
 
-    let final_time = 0.2; //2e-5; //
+    let final_time = 0.1; //2e-5; //
     let Hz = 16e6; // 16 MHz
     let dt = 1. / Hz;
     let n_steps = (final_time / dt) as usize;
@@ -58,20 +58,20 @@ fn main() {
 
             driver.step(runner.cpu.pin_state("D", 3));
 
-            let new_PD = get_voltage(&runner.cpu, "D", 3);
-            data.push(new_PD);
-            if PD == 0. && new_PD == 1. {
-                println!("step: {}", s);
-                count += 1;
-            }
-            PD = new_PD;
+            // let new_PD = get_voltage(&runner.cpu, "D", 3);
+            // data.push(new_PD);
+            // if PD == 0. && new_PD == 1. {
+            //     println!("step: {}", s);
+            //     count += 1;
+            // }
+            // PD = new_PD;
 
-            // let new_PB = get_voltage(&runner.cpu, "B", 3);
-            // // if PB == 0. && new_PB == 1. {
-            // //     println!("step: {}", s);
-            // // }
-            // data2.push(new_PB);
-            // PB = new_PB;
+            let new_PB = get_voltage(&runner.cpu, "B", 3);
+            if PB == 0. && new_PB == 1. {
+                println!("step: {}", s);
+            }
+            data2.push(new_PB);
+            PB = new_PB;
         }
 
         if runner.cpu.data[PORTB_CONFIG.DDR as usize] == 0b11111111 {
@@ -91,17 +91,20 @@ fn main() {
         }
     }
 
-    println!("theta: {}", stepper.theta);
-    println!("step count: {}", count);
-    println!("PD3: {:?}", get_voltage(&runner.cpu, "D", 3));
+    println!("SREG: {:08b}", runner.cpu.sreg());
+    println!("cycles per char: {}", runner.cpu.parity_enabled());
+
+    // println!("theta: {}", stepper.theta);
+    // println!("step count: {}", count);
+    // println!("PD3: {:?}", get_voltage(&runner.cpu, "D", 3));
 
     // println!("DDRC: {:08b}", runner.cpu.data[PORTC_CONFIG.DDR as usize]);
     // println!("PINC: {:08b}", runner.cpu.data[PORTC_CONFIG.PIN as usize]);
     // println!("DDRD: {:08b}", runner.cpu.data[PORTD_CONFIG.DDR as usize]);
     // println!("PIND: {:08b}", runner.cpu.data[PORTD_CONFIG.PIN as usize]);
 
-    plot(&data, final_time, dt, n_steps, "PD3");
-    plot(&data2, final_time, dt, n_steps, "PB3");
+    // plot(&data, final_time, dt, n_steps, "PD3");
+    // plot(&data2, final_time, dt, n_steps, "PB3");
 }
 
 fn get_voltage(cpu: &CPU, key: &str, i: u8) -> Float {

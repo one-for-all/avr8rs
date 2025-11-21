@@ -2,6 +2,7 @@ use crate::cpu::CPU;
 
 pub enum AVRClockEventType {
     Count,
+    USART,
 }
 
 pub type AVRClockEventCallback = Box<dyn Fn(&mut CPU, bool, bool)>;

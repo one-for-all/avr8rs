@@ -1,13 +1,13 @@
-#include <AccelStepper.h>
+// #include <AccelStepper.h>
 
-// Define the stepper motor connections
-#define dirPin 2  // Direction
-#define stepPin 3 // Step
+// // Define the stepper motor connections
+// #define dirPin 2  // Direction
+// #define stepPin 3 // Step
 
-// Create an instance of the AccelStepper class
-AccelStepper stepper(AccelStepper::DRIVER, stepPin, dirPin, 0, 0, false);
+// // Create an instance of the AccelStepper class
+// AccelStepper stepper(AccelStepper::DRIVER, stepPin, dirPin, 0, 0, false);
 
-#define stepsPerRevolution 200 * 8 // 200 steps per revolution * 8 microsteps
+// #define stepsPerRevolution 200 * 8 // 200 steps per revolution * 8 microsteps
 
 // float _speed = 1.0;
 // float _acceleration = 1.0;
@@ -16,32 +16,35 @@ AccelStepper stepper(AccelStepper::DRIVER, stepPin, dirPin, 0, 0, false);
 
 void setup()
 {
+    DDRB |= 0b00001000;
+
+    float n = 3.14 * 2;
+    Serial.begin(9600);
+    Serial.print("world, ");
+    Serial.print("hello!: ");
+    Serial.print(n);
+    Serial.flush();
     // DDRD |= 0b00001000;
-    // DDRB |= 0b00001000;
 
-    // Set the maximum speed and acceleration
-    stepper.setMaxSpeed(20000);
-    stepper.setAcceleration(10000);
+    // // Set the maximum speed and acceleration
     // stepper.setMaxSpeed(20000);
-    // stepper.setAcceleration(200);
+    // stepper.setAcceleration(10000);
+    // // stepper.setMaxSpeed(20000);
+    // // stepper.setAcceleration(200);
 
-    // Set the enable pin for the stepper motor driver and
-    // invert it because we are using a DRV8825 board with an
-    // active-low enable signal (LOW = enabled, HIGH = disabled)
-    stepper.setEnablePin(5);
-    stepper.setPinsInverted(false, false, true);
+    // // Set the enable pin for the stepper motor driver and
+    // // invert it because we are using a DRV8825 board with an
+    // // active-low enable signal (LOW = enabled, HIGH = disabled)
+    // stepper.setEnablePin(5);
+    // stepper.setPinsInverted(false, false, true);
 
-    // Set the initial position
-    stepper.setCurrentPosition(0);
+    // // Set the initial position
+    // stepper.setCurrentPosition(0);
 
-    // Enable the motor outputs
-    stepper.enableOutputs();
+    // // Enable the motor outputs
+    // stepper.enableOutputs();
 
-    // if ((sqrt(0.02) - 0.1414213562373095) < 0.00000001)  {
-    //     PORTD |= 0b00001000;
-    //     PORTD &= ~0b00001000;
-    // }
-    stepper.runToNewPosition(40);
+    // stepper.runToNewPosition(40);
 
     // float result = (2.0 - _cn);
 

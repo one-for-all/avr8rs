@@ -10,6 +10,7 @@ pub mod program;
 pub mod runner;
 pub mod stepper;
 pub mod timer;
+pub mod usart;
 pub mod util;
 
 pub type Float = f64;
