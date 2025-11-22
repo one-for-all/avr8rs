@@ -4,6 +4,7 @@ use crate::{
     clock::AVRClockEventType,
     cpu::{CPU, CPUMemoryHook},
     instruction::avr_instruction,
+    port::{self, AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
     program::load_hex,
     usart::{AVRUSART, UCSRB_TXEN, USART0_CONFIG},
 };
@@ -17,6 +18,7 @@ pub struct ATMega328P {
 
     // peripherals
     pub usart: AVRUSART,
+    pub ports: [AVRIOPort; 3], // B, C, D
 
     // data hooks
     pub write_hooks: HashMap<u16, PeripheralMemoryHook>,
@@ -33,9 +35,25 @@ impl ATMega328P {
         usart.add_ucsrb_handler(&mut write_hooks);
         usart.add_udr_handler(&mut write_hooks);
 
+        // GPIO Ports
+        let port_b = AVRIOPort::new(PORTB_CONFIG);
+        port_b.add_ddr_handler(&mut write_hooks, 0);
+        port_b.add_port_handler(&mut write_hooks, 0);
+
+        let port_c = AVRIOPort::new(PORTC_CONFIG);
+        port_c.add_ddr_handler(&mut write_hooks, 1);
+        port_c.add_port_handler(&mut write_hooks, 1);
+
+        let port_d = AVRIOPort::new(PORTD_CONFIG);
+        port_d.add_ddr_handler(&mut write_hooks, 2);
+        port_d.add_port_handler(&mut write_hooks, 2);
+
+        let ports = [port_b, port_c, port_d];
+
         let atmega328p = Self {
             cpu,
             usart,
+            ports,
             write_hooks,
         };
 
@@ -47,7 +65,15 @@ impl ATMega328P {
     }
 
     pub fn write_data_with_mask(&mut self, addr: u16, data: u8, mask: u8) {
-        if addr == self.usart.config.UDR as u16 || addr == self.usart.config.UCSRB as u16 {
+        if addr == self.usart.config.UDR as u16
+            || addr == self.usart.config.UCSRB as u16
+            || addr == self.ports[0].config.DDR as u16
+            || addr == self.ports[0].config.PORT as u16
+            || addr == self.ports[1].config.DDR as u16
+            || addr == self.ports[1].config.PORT as u16
+            || addr == self.ports[2].config.DDR as u16
+            || addr == self.ports[2].config.PORT as u16
+        {
             if let Some((addr, write_hook)) = self.write_hooks.remove_entry(&addr) {
                 let cpu_data = self.cpu.get_data(addr);
                 let result = write_hook(self, data, cpu_data, addr, mask);

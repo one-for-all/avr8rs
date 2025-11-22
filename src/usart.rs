@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use plotters::data;
-
 use crate::{
     atmega328p::{ATMega328P, PeripheralMemoryHook},
     cpu::CPU,
@@ -24,15 +22,15 @@ const UCSRC_UCSZ0: u8 = 0x2; // Character Size 0
 
 #[allow(non_snake_case)]
 pub struct USARTConfig {
-    pub data_register_empty_interrupt: u8,
-    pub tx_complete_interrupt: u8,
+    pub data_register_empty_interrupt: u8, // interrupt hander address on data register empty
+    pub tx_complete_interrupt: u8, // interrupt hander address on transmit complete for a frame
 
-    pub UCSRA: u8,
-    pub UCSRB: u8,
-    pub UCSRC: u8,
-    pub UBRRL: u8,
-    pub UBRRH: u8,
-    pub UDR: u8,
+    pub UCSRA: u8, // register A address
+    pub UCSRB: u8, // B address
+    pub UCSRC: u8, // C address
+    pub UBRRL: u8, // Baud rate (low bits) register address
+    pub UBRRH: u8, // Baud rate (high bits) register address
+    pub UDR: u8,   // Data register address
 }
 
 pub const USART0_CONFIG: USARTConfig = USARTConfig {
@@ -164,12 +162,13 @@ impl AVRUSART {
     pub fn cycles_per_char(&self, data: &Vec<u8>) -> usize {
         let symbols_per_char = 1
             + self.bits_per_char(data)
-            + self.stop_bits(data)
-            + if self.parity_enabled(data) { 1 } else { 0 };
+            + if self.parity_enabled(data) { 1 } else { 0 }
+            + self.stop_bits(data);
         (self.UBRR(data) + 1) * self.multiplier(data) * symbols_per_char
     }
 }
 
+/// USART settings access methods
 impl ATMega328P {
     pub fn usart_stop_bits(&self) -> usize {
         self.usart.stop_bits(&self.cpu.data)

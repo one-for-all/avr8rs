@@ -3,10 +3,9 @@ use std::collections::HashMap;
 use crate::{
     clock::{AVRClockEventCallback, AVRClockEventEntry, AVRClockEventType},
     interrupt::{AVRInterruptConfig, MAX_INTERRUPTS, avr_interrupt},
-    port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG, PinState},
     ternary,
     timer::{AVRTimer, OCRUpdateMode, TIMER_0_CONFIG},
-    usart::{AVRUSART, UCSRA_TXC, UCSRB_TXEN, USART0_CONFIG},
+    usart::{AVRUSART, USART0_CONFIG},
 };
 
 const SRAM_BYTES: usize = 8192;
@@ -31,8 +30,6 @@ pub struct CPU {
 
     pub pc_22_bits: bool, // Whether the program counter (PC) can address 22 bits (the default is 16)
 
-    pub ports: HashMap<String, AVRIOPort>,
-
     pub timer0: AVRTimer,
 
     pub usart: AVRUSART,
@@ -55,13 +52,6 @@ impl CPU {
 
         let timer0 = AVRTimer::new(TIMER_0_CONFIG);
 
-        let port_keys = ["B", "C", "D"];
-        let ports = HashMap::from([
-            (port_keys[0].to_string(), AVRIOPort::new(PORTB_CONFIG)),
-            (port_keys[1].to_string(), AVRIOPort::new(PORTC_CONFIG)),
-            (port_keys[2].to_string(), AVRIOPort::new(PORTD_CONFIG)),
-        ]);
-
         let usart = AVRUSART::new(USART0_CONFIG, freq_hz);
 
         let mut cpu = Self {
@@ -75,7 +65,6 @@ impl CPU {
             pending_interrupts: [None; MAX_INTERRUPTS],
             next_clock_event: None,
             pc_22_bits,
-            ports,
             timer0,
             usart,
             next_interrupt: -1,
@@ -144,44 +133,6 @@ impl CPU {
                 false
             }),
         );
-
-        for key in port_keys {
-            let port = &cpu.ports[&key.to_string()];
-            cpu.write_hooks.insert(
-                port.config.DDR as u16,
-                Box::new(|cpu, ddr_mask, _, _, _| {
-                    let config = &cpu.ports[&key.to_string()].config;
-                    let port = config.PORT;
-                    let ddr = config.DDR;
-                    let pin = config.PIN;
-
-                    let port_value = cpu.data[port as usize];
-                    cpu.data[ddr as usize] = ddr_mask;
-                    let port = cpu.ports.get_mut(&key.to_string()).unwrap();
-                    port.write_gpio(port_value, ddr_mask);
-                    let new_pin = port.update_pin_register(ddr_mask);
-                    cpu.data[pin as usize] = new_pin;
-
-                    true
-                }),
-            );
-
-            cpu.write_hooks.insert(
-                port.config.PORT as u16,
-                Box::new(|cpu, port_value, _, _, _| {
-                    let config = &cpu.ports[&key.to_string()].config;
-                    let port = config.PORT;
-                    let ddr = config.DDR;
-
-                    let ddr_mask = cpu.data[ddr as usize];
-                    cpu.data[port as usize] = port_value;
-                    let port = cpu.ports.get_mut(&key.to_string()).unwrap();
-                    port.write_gpio(port_value, ddr_mask);
-                    port.update_pin_register(ddr_mask);
-                    true
-                }),
-            );
-        }
 
         cpu.reset();
 
@@ -308,26 +259,6 @@ impl CPU {
                 last_item = &mut clock_event.next;
                 clock_event = last_item.as_mut().unwrap();
             }
-        }
-    }
-
-    /// Get the state of a given GPIO pin
-    ///
-    /// @param index Pin index to return from 0 to 7
-    /// @returns PinState.Low or PinState.High if the pin is set to output, PinState.Input if the pin is set
-    /// to input, and PinState.InputPullUp if the pin is set to input and the internal pull-up resistor has
-    /// been enabled.
-    pub fn pin_state(&self, port_key: &str, index: u8) -> PinState {
-        let p = &self.ports[port_key];
-        let ddr = self.data[p.config.DDR as usize];
-        let port = self.data[p.config.PORT as usize];
-        let bit_mask: u8 = 1 << index;
-        let open_state = ternary!(port & bit_mask, PinState::InputPullUp, PinState::Input);
-        if ddr & bit_mask != 0 {
-            let high_value = ternary!(p.open_collector & bit_mask, open_state, PinState::High);
-            ternary!(p.last_value & bit_mask, high_value, PinState::Low)
-        } else {
-            open_state
         }
     }
 

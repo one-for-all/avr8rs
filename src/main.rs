@@ -6,6 +6,7 @@ use std::{
 
 use avr8rs::{
     Float,
+    atmega328p::ATMega328P,
     cpu::{self, CPU},
     plot::plot,
     port::{PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
@@ -56,7 +57,7 @@ fn main() {
         for _ in 0..delta_cycles {
             // stepper.step_voltage(dt, &voltages);
 
-            driver.step(runner.atmega328p.cpu.pin_state("D", 3));
+            driver.step(runner.atmega328p.port_pin_state("D", 3));
 
             // let new_PD = get_voltage(&runner.cpu, "D", 3);
             // data.push(new_PD);
@@ -66,7 +67,7 @@ fn main() {
             // }
             // PD = new_PD;
 
-            let new_PB = get_voltage(&runner.atmega328p.cpu, "B", 3);
+            let new_PB = get_voltage(&runner.atmega328p, "B", 3);
             if PB == 0. && new_PB == 1. {
                 println!("step: {}", s);
             }
@@ -94,7 +95,7 @@ fn main() {
     println!("SREG: {:08b}", runner.atmega328p.cpu.sreg());
     println!(
         "cycles per char: {}",
-        runner.atmega328p.usart_parity_enabled()
+        runner.atmega328p.usart_cycles_per_char()
     );
 
     // println!("theta: {}", stepper.theta);
@@ -110,8 +111,8 @@ fn main() {
     // plot(&data2, final_time, dt, n_steps, "PB3");
 }
 
-fn get_voltage(cpu: &CPU, key: &str, i: u8) -> Float {
-    match cpu.pin_state(key, i) {
+fn get_voltage(atmega: &ATMega328P, key: &str, i: u8) -> Float {
+    match atmega.port_pin_state(key, i) {
         avr8rs::port::PinState::Low => 0.,
         avr8rs::port::PinState::High => 1.,
         _ => 0.,

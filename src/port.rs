@@ -1,4 +1,10 @@
-use crate::cpu::CPU;
+use std::collections::HashMap;
+
+use crate::{
+    atmega328p::{ATMega328P, PeripheralMemoryHook},
+    cpu::CPU,
+    port, ternary,
+};
 
 #[derive(Debug)]
 pub enum PinState {
@@ -42,6 +48,55 @@ impl AVRIOPort {
         }
     }
 
+    pub fn add_ddr_handler(
+        &self,
+        write_hooks: &mut HashMap<u16, PeripheralMemoryHook>,
+        port_id: usize,
+    ) {
+        write_hooks.insert(
+            self.config.DDR as u16,
+            Box::new(move |atmega, ddr_mask, _, _, _| {
+                let config = &atmega.ports[port_id].config;
+                let port = config.PORT;
+                let ddr = config.DDR;
+                let pin = config.PIN;
+
+                let port_value = atmega.cpu.data[port as usize];
+                atmega.cpu.data[ddr as usize] = ddr_mask;
+
+                let port = &mut atmega.ports[port_id];
+                port.write_gpio(port_value, ddr_mask);
+                let new_pin = port.update_pin_register(ddr_mask);
+                atmega.cpu.data[pin as usize] = new_pin;
+
+                true
+            }),
+        );
+    }
+
+    pub fn add_port_handler(
+        &self,
+        write_hooks: &mut HashMap<u16, PeripheralMemoryHook>,
+        port_id: usize,
+    ) {
+        write_hooks.insert(
+            self.config.PORT as u16,
+            Box::new(move |atmega, port_value, _, _, _| {
+                let config = &atmega.ports[port_id].config;
+                let port = config.PORT;
+                let ddr = config.DDR;
+
+                let ddr_mask = atmega.cpu.data[ddr as usize];
+                atmega.cpu.data[port as usize] = port_value;
+
+                let port = &mut atmega.ports[port_id];
+                port.write_gpio(port_value, ddr_mask);
+                port.update_pin_register(ddr_mask);
+                true
+            }),
+        );
+    }
+
     pub fn update_pin_register(&mut self, ddr: u8) -> u8 {
         let new_pin = (self.pin_value & !ddr) | (self.last_value & ddr);
         if self.last_pin != new_pin {
@@ -72,6 +127,36 @@ impl AVRIOPort {
             // }
         }
     }
+
+    /// Get the state of a given GPIO pin
+    ///
+    /// @param index Pin index to return from 0 to 7
+    /// @returns PinState.Low or PinState.High if the pin is set to output, PinState.Input if the pin is set
+    /// to input, and PinState.InputPullUp if the pin is set to input and the internal pull-up resistor has
+    /// been enabled.
+    pub fn pin_state(&self, pin: u8, data: &Vec<u8>) -> PinState {
+        let ddr = data[self.config.DDR as usize];
+        let port = data[self.config.PORT as usize];
+        let bit_mask: u8 = 1 << pin;
+        let open_state = ternary!(port & bit_mask, PinState::InputPullUp, PinState::Input);
+        if ddr & bit_mask != 0 {
+            let high_value = ternary!(self.open_collector & bit_mask, open_state, PinState::High);
+            ternary!(self.last_value & bit_mask, high_value, PinState::Low)
+        } else {
+            open_state
+        }
+    }
+}
+
+impl ATMega328P {
+    pub fn port_pin_state(&self, port: &str, pin: u8) -> PinState {
+        match port {
+            "B" => self.ports[0].pin_state(pin, &self.cpu.data),
+            "C" => self.ports[1].pin_state(pin, &self.cpu.data),
+            "D" => self.ports[2].pin_state(pin, &self.cpu.data),
+            _ => panic!("unknown port"),
+        }
+    }
 }
 
 pub const PORTB_CONFIG: AVRPortConfig = AVRPortConfig {
@@ -96,24 +181,60 @@ pub const PORTD_CONFIG: AVRPortConfig = AVRPortConfig {
 mod port_tests {
     use crate::{
         atmega328p::{ATMega328P, DEFAULT_FREQ},
-        cpu::CPU,
-        port::{PORTB_CONFIG, PORTD_CONFIG, PinState},
+        port::{PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG, PinState},
     };
 
     #[test]
-    fn default_pin_input() {
-        let cpu = CPU::new(vec![0; 1024], DEFAULT_FREQ);
-        assert!(matches!(cpu.pin_state("B", 0), PinState::Input));
+    fn pin_default_input() {
+        // Arrange
+        let atmega = ATMega328P::new("", DEFAULT_FREQ);
+        let pin = 4;
+
+        // Act/Assert
+        assert!(matches!(atmega.port_pin_state("B", pin), PinState::Input));
     }
 
     #[test]
-    fn set_pin() {
-        let mut atmega328p = ATMega328P::new("", DEFAULT_FREQ);
-        // let mut cpu = CPU::new(vec![0; 1024]);
+    fn set_pin_high() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+        let pin = 3;
 
-        atmega328p.write_data_with_mask(PORTD_CONFIG.DDR as u16, 0x2, 0xff);
-        atmega328p.write_data_with_mask(PORTD_CONFIG.PORT as u16, 0x2, 0xff);
+        // Act
+        atmega.write_data(PORTB_CONFIG.DDR as u16, 1 << pin);
+        atmega.write_data(PORTB_CONFIG.PORT as u16, 1 << pin);
 
-        assert!(matches!(atmega328p.cpu.pin_state("D", 1), PinState::High));
+        // Assert
+        assert!(matches!(atmega.port_pin_state("B", pin), PinState::High));
+    }
+
+    #[test]
+    fn set_pin_low() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+        let pin = 1;
+
+        // Act
+        atmega.write_data(PORTD_CONFIG.DDR as u16, 1 << pin);
+        atmega.write_data(PORTD_CONFIG.PORT as u16, !(1 << pin));
+
+        // Assert
+        assert!(matches!(atmega.port_pin_state("D", pin), PinState::Low));
+    }
+
+    #[test]
+    fn set_pin_pullup() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+        let pin = 2;
+
+        // Act
+        atmega.write_data(PORTC_CONFIG.PORT as u16, 1 << pin);
+
+        // Assert
+        assert!(matches!(
+            atmega.port_pin_state("C", pin),
+            PinState::InputPullUp
+        ));
     }
 }
