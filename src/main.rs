@@ -43,9 +43,9 @@ fn main() {
     while s < n_steps {
         // print!("cycle: {} ", s);
 
-        let cycles = runner.cpu.cycles;
+        let cycles = runner.atmega328p.cpu.cycles;
         runner.step();
-        let delta_cycles = (runner.cpu.cycles - cycles) as usize;
+        let delta_cycles = (runner.atmega328p.cpu.cycles - cycles) as usize;
 
         // let ap = get_voltage(&runner.cpu, 2);
         // let am = get_voltage(&runner.cpu, 3);
@@ -56,7 +56,7 @@ fn main() {
         for _ in 0..delta_cycles {
             // stepper.step_voltage(dt, &voltages);
 
-            driver.step(runner.cpu.pin_state("D", 3));
+            driver.step(runner.atmega328p.cpu.pin_state("D", 3));
 
             // let new_PD = get_voltage(&runner.cpu, "D", 3);
             // data.push(new_PD);
@@ -66,7 +66,7 @@ fn main() {
             // }
             // PD = new_PD;
 
-            let new_PB = get_voltage(&runner.cpu, "B", 3);
+            let new_PB = get_voltage(&runner.atmega328p.cpu, "B", 3);
             if PB == 0. && new_PB == 1. {
                 println!("step: {}", s);
             }
@@ -74,7 +74,7 @@ fn main() {
             PB = new_PB;
         }
 
-        if runner.cpu.data[PORTB_CONFIG.DDR as usize] == 0b11111111 {
+        if runner.atmega328p.cpu.data[PORTB_CONFIG.DDR as usize] == 0b11111111 {
             println!("finished");
             return;
         }
@@ -91,8 +91,11 @@ fn main() {
         }
     }
 
-    println!("SREG: {:08b}", runner.cpu.sreg());
-    println!("cycles per char: {}", runner.cpu.parity_enabled());
+    println!("SREG: {:08b}", runner.atmega328p.cpu.sreg());
+    println!(
+        "cycles per char: {}",
+        runner.atmega328p.usart_parity_enabled()
+    );
 
     // println!("theta: {}", stepper.theta);
     // println!("step count: {}", count);

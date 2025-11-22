@@ -95,23 +95,25 @@ pub const PORTD_CONFIG: AVRPortConfig = AVRPortConfig {
 #[cfg(test)]
 mod port_tests {
     use crate::{
+        atmega328p::{ATMega328P, DEFAULT_FREQ},
         cpu::CPU,
         port::{PORTB_CONFIG, PORTD_CONFIG, PinState},
     };
 
     #[test]
     fn default_pin_input() {
-        let cpu = CPU::new(vec![0; 1024]);
+        let cpu = CPU::new(vec![0; 1024], DEFAULT_FREQ);
         assert!(matches!(cpu.pin_state("B", 0), PinState::Input));
     }
 
     #[test]
     fn set_pin() {
-        let mut cpu = CPU::new(vec![0; 1024]);
+        let mut atmega328p = ATMega328P::new("", DEFAULT_FREQ);
+        // let mut cpu = CPU::new(vec![0; 1024]);
 
-        cpu.write_data(PORTD_CONFIG.DDR as u16, 0x2, 0xff);
-        cpu.write_data(PORTD_CONFIG.PORT as u16, 0x2, 0xff);
+        atmega328p.write_data_with_mask(PORTD_CONFIG.DDR as u16, 0x2, 0xff);
+        atmega328p.write_data_with_mask(PORTD_CONFIG.PORT as u16, 0x2, 0xff);
 
-        assert!(matches!(cpu.pin_state("D", 1), PinState::High));
+        assert!(matches!(atmega328p.cpu.pin_state("D", 1), PinState::High));
     }
 }

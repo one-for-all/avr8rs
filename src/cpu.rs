@@ -6,14 +6,15 @@ use crate::{
     port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG, PinState},
     ternary,
     timer::{AVRTimer, OCRUpdateMode, TIMER_0_CONFIG},
-    usart::{AVRUSART, UCSRB_TXEN, USART0_CONFIG},
+    usart::{AVRUSART, UCSRA_TXC, UCSRB_TXEN, USART0_CONFIG},
 };
 
 const SRAM_BYTES: usize = 8192;
 const REGISTER_SPACE: usize = 0x100;
+const SREG: usize = 95;
 
-type CPUMemoryReadHook = Box<dyn Fn(&mut CPU, u16) -> u8>;
-type CPUMemoryHook = Box<dyn Fn(&mut CPU, u8, u8, u16, u8) -> bool>;
+pub type CPUMemoryReadHook = Box<dyn Fn(&mut CPU, u16) -> u8>;
+pub type CPUMemoryHook = Box<dyn Fn(&mut CPU, u8, u8, u16, u8) -> bool>;
 
 pub struct CPU {
     pub data: Vec<u8>,
@@ -23,7 +24,7 @@ pub struct CPU {
     pub cycles: u32, // clock cycle counter
 
     read_hooks: HashMap<u16, CPUMemoryReadHook>,
-    write_hooks: HashMap<u16, CPUMemoryHook>,
+    pub write_hooks: HashMap<u16, CPUMemoryHook>,
 
     pub pending_interrupts: [Option<AVRInterruptConfig>; MAX_INTERRUPTS], // TODO: optimize this data structure for space
     pub next_clock_event: Option<Box<AVRClockEventEntry>>,
@@ -35,13 +36,12 @@ pub struct CPU {
     pub timer0: AVRTimer,
 
     pub usart: AVRUSART,
-
     pub next_interrupt: i16,
     max_interrupt: i16,
 }
 
 impl CPU {
-    pub fn new(prog_bytes: Vec<u8>) -> Self {
+    pub fn new(prog_bytes: Vec<u8>, freq_hz: usize) -> Self {
         // convert to Vec<u16>
         let prog_mem = prog_bytes
             .chunks(2)
@@ -62,7 +62,7 @@ impl CPU {
             (port_keys[2].to_string(), AVRIOPort::new(PORTD_CONFIG)),
         ]);
 
-        let usart = AVRUSART::new(USART0_CONFIG);
+        let usart = AVRUSART::new(USART0_CONFIG, freq_hz);
 
         let mut cpu = Self {
             data: vec![0; SRAM_BYTES + REGISTER_SPACE],
@@ -183,49 +183,21 @@ impl CPU {
             );
         }
 
-        cpu.write_hooks.insert(
-            cpu.usart.config.UCSRB as u16,
-            Box::new(|cpu, value, old_value, _, _| {
-                // cpu.update_interrupt_enable(cpu.usart.rxc, value);
-                cpu.update_interrupt_enable(cpu.usart.udre, value);
-                cpu.update_interrupt_enable(cpu.usart.txc, value);
-                // if value & UCSRB_RXEN && old_value & UCSRB_RXEN {
-                //     cpu.clear_interrupt(cpu.usart.rxc, true);
-                // }
-                if value & UCSRB_TXEN != 0 && old_value & UCSRB_TXEN == 0 {
-                    // Enabling the transmission - mark UDR as empty
-                    cpu.set_interrupt_flag(cpu.usart.udre);
-                }
-                cpu.data[cpu.usart.config.UCSRB as usize] = value;
-                // cpu.onConfigurationChange
-
-                true
-            }),
-        );
-
-        cpu.write_hooks.insert(
-            cpu.usart.config.UDR as u16,
-            Box::new(|cpu, value, _, _, _| {
-                println!("usart: {}", str::from_utf8(&[value]).unwrap());
-
-                cpu.add_clock_event(
-                    Box::new(|cpu: &mut CPU, _, _| {
-                        cpu.set_interrupt_flag(cpu.usart.udre);
-                        cpu.set_interrupt_flag(cpu.usart.txc);
-                    }),
-                    cpu.cycles_per_char(),
-                    AVRClockEventType::USART,
-                );
-                let txc = cpu.usart.txc.clone();
-                cpu.clear_interrupt(&txc, true);
-                let urde = cpu.usart.udre.clone();
-                cpu.clear_interrupt(&urde, true);
-
-                false
-            }),
-        );
+        cpu.reset();
 
         cpu
+    }
+
+    fn reset(&mut self) {
+        self.set_sp((self.data.len() - 1) as u16);
+        self.pc = 0;
+        self.pending_interrupts = [None; MAX_INTERRUPTS];
+        self.next_interrupt = -1;
+        self.next_clock_event = None;
+    }
+
+    pub fn set_sp(&mut self, data: u16) {
+        self.set_data_u16(93, data);
     }
 
     pub fn get_data(&self, addr: u16) -> u8 {
@@ -257,17 +229,6 @@ impl CPU {
             return result;
         }
         self.get_data(addr)
-    }
-
-    pub fn write_data(&mut self, addr: u16, data: u8, mask: u8) {
-        if let Some((addr, write_hook)) = self.write_hooks.remove_entry(&addr) {
-            let result = write_hook(self, data, self.get_data(addr), addr, mask);
-            self.write_hooks.insert(addr, write_hook);
-            if result {
-                return;
-            }
-        }
-        self.set_data(addr, data);
     }
 
     pub fn add_clock_event(
@@ -501,7 +462,11 @@ impl CPU {
     }
 
     pub fn sreg(&self) -> u8 {
-        self.data[95]
+        self.data[SREG]
+    }
+
+    pub fn set_sreg(&mut self, data: u8) {
+        self.data[SREG] = data;
     }
 
     pub fn interrupts_enabled(&self) -> bool {

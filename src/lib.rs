@@ -1,5 +1,6 @@
 use std::f64;
 
+pub mod atmega328p;
 pub mod clock;
 pub mod cpu;
 pub mod instruction;
