@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    clock::AVRClockEventType,
-    cpu::{CPU, CPUMemoryHook},
+    cpu::CPU,
     instruction::avr_instruction,
-    port::{self, AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
+    port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
     program::load_hex,
-    usart::{AVRUSART, UCSRB_TXEN, USART0_CONFIG},
+    usart::{AVRUSART, USART0_CONFIG},
 };
 
 pub const DEFAULT_FREQ: usize = 16_000_000; // 16Mhz
@@ -31,6 +30,7 @@ impl ATMega328P {
 
         let mut write_hooks: HashMap<u16, PeripheralMemoryHook> = HashMap::new();
 
+        // Universal Synchronous/Asynchronous Receiver Transmitter
         let usart = AVRUSART::new(USART0_CONFIG, freq_hz);
         usart.add_ucsrb_handler(&mut write_hooks);
         usart.add_udr_handler(&mut write_hooks);

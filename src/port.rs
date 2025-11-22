@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     atmega328p::{ATMega328P, PeripheralMemoryHook},
-    cpu::CPU,
-    port, ternary,
+    ternary,
 };
 
 #[derive(Debug)]
@@ -16,9 +15,9 @@ pub enum PinState {
 
 #[allow(non_snake_case)]
 pub struct AVRPortConfig {
-    pub PIN: u8,
-    pub DDR: u8,
-    pub PORT: u8,
+    pub PIN: u8,  // Input register address
+    pub DDR: u8,  // Direction register address
+    pub PORT: u8, // Data register address
 }
 
 pub struct AVRIOPort {
