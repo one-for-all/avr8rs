@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     cpu::CPU,
     instruction::avr_instruction,
+    interrupt::avr_interrupt,
     port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
     program::load_hex,
     usart::{AVRUSART, USART0_CONFIG},
@@ -37,10 +38,13 @@ impl ATMega328P {
 
         let mut read_hooks: HashMap<u16, PeripheralMemoryReadHook> = HashMap::new();
 
+        let mut write_hooks: HashMap<u16, PeripheralMemoryWriteHook> = HashMap::new();
+
         // Timer
         cpu.timer0.add_TCNT_read_hook(&mut read_hooks);
-
-        let mut write_hooks: HashMap<u16, PeripheralMemoryWriteHook> = HashMap::new();
+        cpu.timer0.add_TCNT_write_hook(&mut write_hooks);
+        cpu.timer0.add_TCCRB_write_hook(&mut write_hooks);
+        cpu.timer0.add_TIMSK_write_hook(&mut write_hooks);
 
         // Universal Synchronous/Asynchronous Receiver Transmitter
         usart.add_ucsrb_handler(&mut write_hooks);
@@ -57,11 +61,6 @@ impl ATMega328P {
         port_d.add_port_handler(&mut write_hooks, 2);
 
         let ports = [port_b, port_c, port_d];
-
-        // Timer
-        cpu.timer0.add_TCNT_write_hook(&mut write_hooks);
-        cpu.timer0.add_TCCRB_write_hook(&mut write_hooks);
-        cpu.timer0.add_TIMSK_write_hook(&mut write_hooks);
 
         let atmega328p = Self {
             cpu,
@@ -103,6 +102,30 @@ impl ATMega328P {
 
     pub fn step(&mut self) {
         avr_instruction(self);
-        self.cpu.tick();
+        self.tick();
+    }
+
+    pub fn tick(&mut self) {
+        if let Some(event) = self.cpu.next_clock_event.take() {
+            // println!(
+            //     "event cycles: {}, cpu cycles: {}",
+            //     event.cycles, self.cycles
+            // );
+            if event.cycles <= self.cpu.cycles {
+                self.cpu.next_clock_event = event.next;
+                (event.callback)(self, true, false);
+            } else {
+                self.cpu.next_clock_event = Some(event);
+            }
+        }
+
+        let next_interrupt = self.cpu.next_interrupt;
+        if self.cpu.interrupts_enabled() && next_interrupt >= 0 {
+            assert!(self.cpu.pending_interrupts[next_interrupt as usize].is_some());
+            let interrupt = self.cpu.pending_interrupts[next_interrupt as usize].unwrap();
+            // println!("interrupt: {}", next_interrupt);
+            avr_interrupt(&mut self.cpu, interrupt.address);
+            self.cpu.clear_interrupt(&interrupt, true);
+        }
     }
 }

@@ -63,17 +63,6 @@ impl CPU {
             max_interrupt: 0,
         };
 
-        // // Timer0 setup
-        // cpu.read_hooks.insert(
-        //     cpu.timer0.config.TCNT as u16,
-        //     Box::new(|cpu, addr| {
-        //         cpu.count(false, false);
-        //         let data = (cpu.timer0.tcnt & 0xff) as u8;
-        //         cpu.set_data(addr, data);
-        //         data
-        //     }),
-        // );
-
         cpu.reset();
 
         cpu
@@ -217,73 +206,6 @@ impl CPU {
         self.timer0_tccrb() & 0x7
     }
 
-    pub fn count(&mut self, reschedule: bool, external: bool) {
-        // println!("count");
-        // println!("cpu cycles: {}", self.cycles);
-        let divider = self.timer0.divider;
-        let last_cycle = self.timer0.last_cycle;
-        let cycles = self.cycles;
-        let delta = (cycles - last_cycle) as u16;
-        // println!("delta: {} divider: {}", delta, divider);
-        if (divider != 0 && delta >= divider) || external {
-            let counter_delta = if external { 1 } else { delta / divider };
-            self.timer0.last_cycle += counter_delta as u32 * divider as u32;
-            let val = self.timer0.tcnt;
-            // timer mode, assume is normal
-            let TOP = self.timer0.top();
-            let new_val = (val + counter_delta) % (TOP + 1);
-            // println!("val: {}, new val: {}", val, new_val);
-            let overflow = val + counter_delta > TOP;
-            // A CPU write overrides all counter clear or count operations
-            if true {
-                // if !tcntUpdated
-                self.timer0.tcnt = new_val;
-                // if !phase pwm
-                // self.timer0.timerUpdated(new_val, val);
-            }
-
-            // OCRUpdateMode.Bottom only occurs in Phase Correct modes, handled by phasePwmCount().
-            // Thus we only handle TOVUpdateMode.Top or TOVUpdateMode.Max here.
-            // println!("overflow: {}", overflow);
-            // if overflow {
-            //     println!("overflow");
-            // }
-            if overflow && TOP == self.timer0.max {
-                self.set_interrupt_flag(self.timer0.ovf);
-            }
-        }
-        if self.timer0.tcnt_updated {
-            self.timer0.tcnt = self.timer0.tcnt_next;
-            self.timer0.tcnt_updated = false;
-            // TODO: OCR updates
-        }
-        // TODO: handle if tcntUpdated
-        if self.timer0.update_divider {
-            let cs = self.timer0_cs();
-            let timer01_dividers = [0, 1, 8, 64, 256, 1024, 0, 0];
-            let new_divider = timer01_dividers[cs as usize];
-
-            self.timer0.last_cycle = ternary!(new_divider, self.cycles, 0);
-            self.timer0.update_divider = false;
-            self.timer0.divider = new_divider;
-            if new_divider != 0 {
-                self.add_clock_event(
-                    Box::new(CPU::count),
-                    self.timer0.last_cycle + new_divider as u32 - self.cycles,
-                    AVRClockEventType::Count,
-                );
-            }
-            return;
-        }
-        if reschedule && divider != 0 {
-            self.add_clock_event(
-                Box::new(CPU::count),
-                self.timer0.last_cycle + divider as u32 - self.cycles,
-                AVRClockEventType::Count,
-            );
-        }
-    }
-
     pub fn set_interrupt_flag(&mut self, interrupt: AVRInterruptConfig) {
         let flag_register = interrupt.flag_register;
         let flag_mask = interrupt.flag_mask;
@@ -354,29 +276,5 @@ impl CPU {
 
     pub fn interrupts_enabled(&self) -> bool {
         self.sreg() & 0x80 != 0
-    }
-
-    pub fn tick(&mut self) {
-        if let Some(event) = self.next_clock_event.take() {
-            // println!(
-            //     "event cycles: {}, cpu cycles: {}",
-            //     event.cycles, self.cycles
-            // );
-            if event.cycles <= self.cycles {
-                self.next_clock_event = event.next;
-                (event.callback)(self, true, false);
-            } else {
-                self.next_clock_event = Some(event);
-            }
-        }
-
-        let next_interrupt = self.next_interrupt;
-        if self.interrupts_enabled() && next_interrupt >= 0 {
-            assert!(self.pending_interrupts[next_interrupt as usize].is_some());
-            let interrupt = self.pending_interrupts[next_interrupt as usize].unwrap();
-            // println!("interrupt: {}", next_interrupt);
-            avr_interrupt(self, interrupt.address);
-            self.clear_interrupt(&interrupt, true);
-        }
     }
 }

@@ -106,9 +106,9 @@ impl AVRUSART {
                 println!("usart: {}", str::from_utf8(&[value]).unwrap());
 
                 atmega.cpu.add_clock_event(
-                    Box::new(|cpu: &mut CPU, _, _| {
-                        cpu.set_interrupt_flag(cpu.usart.udre);
-                        cpu.set_interrupt_flag(cpu.usart.txc);
+                    Box::new(|atmega: &mut ATMega328P, _, _| {
+                        atmega.cpu.set_interrupt_flag(atmega.cpu.usart.udre);
+                        atmega.cpu.set_interrupt_flag(atmega.cpu.usart.txc);
                     }),
                     atmega.usart_cycles_per_char(),
                     crate::clock::AVRClockEventType::USART,
@@ -214,7 +214,7 @@ mod usart_tests {
         atmega.write_data(USART0_CONFIG.UDR as u16, 0x61);
         atmega.cpu.set_sreg(1 << 7);
         atmega.cpu.cycles = cycles;
-        atmega.cpu.tick();
+        atmega.tick();
 
         // Assert
         assert_eq!(atmega.cpu.pc, USART0_CONFIG.tx_complete_interrupt as u32);
@@ -232,7 +232,7 @@ mod usart_tests {
         // Act
         atmega.write_data(USART0_CONFIG.UCSRB as u16, UCSRB_TXCIE | UCSRB_TXEN);
         atmega.cpu.set_sreg(1 << 7);
-        atmega.cpu.tick();
+        atmega.tick();
 
         // Assert
         assert_eq!(atmega.cpu.pc, 0);
@@ -251,7 +251,7 @@ mod usart_tests {
         atmega.write_data(USART0_CONFIG.UDR as u16, 0x61);
         atmega.cpu.set_sreg(0); // disable interrupts
         atmega.cpu.cycles = cycles;
-        atmega.cpu.tick();
+        atmega.tick();
 
         // Assert
         assert_eq!(atmega.cpu.pc, 0);

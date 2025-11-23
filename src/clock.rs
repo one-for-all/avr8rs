@@ -1,4 +1,4 @@
-use crate::cpu::CPU;
+use crate::{atmega328p::ATMega328P, cpu::CPU};
 
 #[derive(Clone)]
 pub enum AVRClockEventType {
@@ -6,7 +6,7 @@ pub enum AVRClockEventType {
     USART,
 }
 
-pub type AVRClockEventCallback = Box<dyn Fn(&mut CPU, bool, bool)>;
+pub type AVRClockEventCallback = Box<dyn Fn(&mut ATMega328P, bool, bool)>;
 
 pub struct AVRClockEventEntry {
     pub cycles: u32,
