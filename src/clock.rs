@@ -1,5 +1,6 @@
 use crate::cpu::CPU;
 
+#[derive(Clone)]
 pub enum AVRClockEventType {
     Count,
     USART,

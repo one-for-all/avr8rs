@@ -23,7 +23,6 @@ pub struct CPU {
     pub cycles: u32, // clock cycle counter
 
     read_hooks: HashMap<u16, CPUMemoryReadHook>,
-    pub write_hooks: HashMap<u16, CPUMemoryHook>,
 
     pub pending_interrupts: [Option<AVRInterruptConfig>; MAX_INTERRUPTS], // TODO: optimize this data structure for space
     pub next_clock_event: Option<Box<AVRClockEventEntry>>,
@@ -61,7 +60,6 @@ impl CPU {
             pc: 0,
             cycles: 0,
             read_hooks: HashMap::new(),
-            write_hooks: HashMap::new(),
             pending_interrupts: [None; MAX_INTERRUPTS],
             next_clock_event: None,
             pc_22_bits,
@@ -79,58 +77,6 @@ impl CPU {
                 let data = (cpu.timer0.tcnt & 0xff) as u8;
                 cpu.set_data(addr, data);
                 data
-            }),
-        );
-
-        cpu.write_hooks.insert(
-            cpu.timer0.config.OCRA as u16,
-            Box::new(|cpu, value, _, _, _| {
-                cpu.timer0.next_ocra = ((cpu.timer0.high_byte_temp as u16) << 8) | value as u16;
-                if matches!(cpu.timer0.ocr_update_mode, OCRUpdateMode::Immediate) {
-                    cpu.timer0.ocra = cpu.timer0.next_ocra;
-                }
-                false
-            }),
-        );
-
-        cpu.write_hooks.insert(
-            cpu.timer0.config.TCCRA as u16,
-            Box::new(|cpu, value, _, _, _| {
-                cpu.set_data(cpu.timer0.config.TCCRA as u16, value);
-                // TODO: update wgm config
-                true
-            }),
-        );
-
-        cpu.write_hooks.insert(
-            cpu.timer0.config.TCCRB as u16,
-            Box::new(|cpu, value, _, _, _| {
-                // TODO: check force compare
-                cpu.set_data(cpu.timer0.config.TCCRB as u16, value);
-                cpu.timer0.update_divider = true;
-                cpu.clear_clock_event(AVRClockEventType::Count);
-                cpu.add_clock_event(Box::new(CPU::count), 0, AVRClockEventType::Count);
-                // TODO: update wgm config
-                true
-            }),
-        );
-
-        cpu.write_hooks.insert(
-            cpu.timer0.config.TIFR as u16,
-            Box::new(|cpu, value, _, _, _| {
-                println!("TIFR hook");
-                cpu.set_data(cpu.timer0.config.TIFR as u16, value);
-                // TODO: clear interrupt by flag
-                true
-            }),
-        );
-
-        cpu.write_hooks.insert(
-            cpu.timer0.config.TIMSK as u16,
-            Box::new(|cpu, value, _, _, _| {
-                println!("TIMSK hook");
-                cpu.update_interrupt_enable(cpu.timer0.ovf, value);
-                false
             }),
         );
 
@@ -225,10 +171,12 @@ impl CPU {
         }
     }
 
-    pub fn clear_clock_event(&mut self, event_type: AVRClockEventType) {
+    pub fn clear_clock_event(&mut self, event_type: AVRClockEventType) -> bool {
         if self.next_clock_event.is_none() {
-            return;
+            return false;
         }
+
+        let mut ret_value = false; // whether any event type match
         while self
             .next_clock_event
             .as_ref()
@@ -236,11 +184,12 @@ impl CPU {
         {
             let event = self.next_clock_event.take();
             self.next_clock_event = event.unwrap().next;
+            ret_value = true;
         }
 
         let mut last_item = &mut self.next_clock_event;
         if last_item.is_none() {
-            return;
+            return ret_value;
         }
         let mut clock_event = last_item.as_mut().unwrap();
         loop {
@@ -255,11 +204,26 @@ impl CPU {
             {
                 let next = clock_event.next.take();
                 clock_event.next = next.unwrap().next;
+                ret_value = true;
             } else {
                 last_item = &mut clock_event.next;
                 clock_event = last_item.as_mut().unwrap();
             }
         }
+        ret_value
+    }
+
+    pub fn update_clock_event(
+        &mut self,
+        callback: AVRClockEventCallback,
+        event_type: AVRClockEventType,
+        cycles: u32,
+    ) -> bool {
+        if self.clear_clock_event(event_type.clone()) {
+            self.add_clock_event(callback, cycles, event_type);
+            return true;
+        }
+        false
     }
 
     pub fn timer0_tccrb(&self) -> u8 {
@@ -277,6 +241,7 @@ impl CPU {
         let last_cycle = self.timer0.last_cycle;
         let cycles = self.cycles;
         let delta = (cycles - last_cycle) as u16;
+        // println!("delta: {} divider: {}", delta, divider);
         if (divider != 0 && delta >= divider) || external {
             let counter_delta = if external { 1 } else { delta / divider };
             self.timer0.last_cycle += counter_delta as u32 * divider as u32;
@@ -301,9 +266,13 @@ impl CPU {
             //     println!("overflow");
             // }
             if overflow && TOP == self.timer0.max {
-                let ovf = self.timer0.ovf;
-                self.set_interrupt_flag(ovf);
+                self.set_interrupt_flag(self.timer0.ovf);
             }
+        }
+        if self.timer0.tcnt_updated {
+            self.timer0.tcnt = self.timer0.tcnt_next;
+            self.timer0.tcnt_updated = false;
+            // TODO: OCR updates
         }
         // TODO: handle if tcntUpdated
         if self.timer0.update_divider {

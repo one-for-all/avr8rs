@@ -26,7 +26,7 @@ pub struct ATMega328P {
 impl ATMega328P {
     pub fn new(hex: &str, freq_hz: usize) -> Self {
         let prog = load_hex(&hex);
-        let cpu = CPU::new(prog, freq_hz);
+        let mut cpu = CPU::new(prog, freq_hz);
 
         let mut write_hooks: HashMap<u16, PeripheralMemoryHook> = HashMap::new();
 
@@ -50,6 +50,11 @@ impl ATMega328P {
 
         let ports = [port_b, port_c, port_d];
 
+        // Timer
+        cpu.timer0.add_TCNT_write_hook(&mut write_hooks);
+        cpu.timer0.add_TCCRB_write_hook(&mut write_hooks);
+        cpu.timer0.add_TIMSK_write_hook(&mut write_hooks);
+
         let atmega328p = Self {
             cpu,
             usart,
@@ -65,31 +70,12 @@ impl ATMega328P {
     }
 
     pub fn write_data_with_mask(&mut self, addr: u16, data: u8, mask: u8) {
-        if addr == self.usart.config.UDR as u16
-            || addr == self.usart.config.UCSRB as u16
-            || addr == self.ports[0].config.DDR as u16
-            || addr == self.ports[0].config.PORT as u16
-            || addr == self.ports[1].config.DDR as u16
-            || addr == self.ports[1].config.PORT as u16
-            || addr == self.ports[2].config.DDR as u16
-            || addr == self.ports[2].config.PORT as u16
-        {
-            if let Some((addr, write_hook)) = self.write_hooks.remove_entry(&addr) {
-                let cpu_data = self.cpu.get_data(addr);
-                let result = write_hook(self, data, cpu_data, addr, mask);
-                self.write_hooks.insert(addr, write_hook);
-                if result {
-                    return;
-                }
-            }
-        } else {
-            let cpu = &mut self.cpu;
-            if let Some((addr, write_hook)) = cpu.write_hooks.remove_entry(&addr) {
-                let result = write_hook(cpu, data, cpu.get_data(addr), addr, mask);
-                cpu.write_hooks.insert(addr, write_hook);
-                if result {
-                    return;
-                }
+        if let Some((addr, write_hook)) = self.write_hooks.remove_entry(&addr) {
+            let cpu_data = self.cpu.get_data(addr);
+            let result = write_hook(self, data, cpu_data, addr, mask);
+            self.write_hooks.insert(addr, write_hook);
+            if result {
+                return;
             }
         }
         self.cpu.set_data(addr, data);

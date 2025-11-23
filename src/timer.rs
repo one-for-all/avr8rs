@@ -1,4 +1,12 @@
-use crate::interrupt::AVRInterruptConfig;
+use std::collections::HashMap;
+
+use crate::{
+    atmega328p::PeripheralMemoryHook, clock::AVRClockEventType, cpu::CPU,
+    interrupt::AVRInterruptConfig,
+};
+
+const CS00: u8 = 1 << 0; // Clock Select 0
+const CS01: u8 = 1 << 1; // Clock Select 1
 
 #[allow(non_snake_case)]
 pub struct AVRTimerConfig {
@@ -36,6 +44,8 @@ pub struct AVRTimer {
     pub ocr_update_mode: OCRUpdateMode,
 
     pub tcnt: u16,
+    pub tcnt_next: u16,
+    pub tcnt_updated: bool,
 
     pub update_divider: bool,
     pub divider: u16,
@@ -56,6 +66,8 @@ impl AVRTimer {
             next_ocra: 0,
             ocr_update_mode: OCRUpdateMode::Immediate,
             tcnt: 0,
+            tcnt_next: 0,
+            tcnt_updated: false,
             update_divider: false,
             divider: 0,
             high_byte_temp: 0,
@@ -67,6 +79,62 @@ impl AVRTimer {
     pub fn top(&self) -> u16 {
         // for now, assume to be 0xff
         0xff
+    }
+
+    #[allow(non_snake_case)]
+    pub fn add_TCNT_write_hook(&mut self, write_hooks: &mut HashMap<u16, PeripheralMemoryHook>) {
+        write_hooks.insert(
+            self.config.TCNT as u16,
+            Box::new(|atmega, value, _, _, _| {
+                atmega.cpu.timer0.tcnt_next =
+                    value as u16 | (atmega.cpu.timer0.high_byte_temp as u16) << 8;
+                // atmega.cpu.timer0.counting_up = true;
+                atmega.cpu.timer0.tcnt_updated = true;
+                atmega.cpu.update_clock_event(
+                    Box::new(CPU::count),
+                    crate::clock::AVRClockEventType::Count,
+                    0,
+                );
+                // if atmega.cpu.timer0.divider != 0 {
+                //     atmega.cpu.timer0.timer_updated
+                // }
+                false
+            }),
+        );
+    }
+
+    #[allow(non_snake_case)]
+    pub fn add_TCCRB_write_hook(&mut self, write_hooks: &mut HashMap<u16, PeripheralMemoryHook>) {
+        write_hooks.insert(
+            self.config.TCCRB as u16,
+            Box::new(|atmega, value, _, _, _| {
+                // TODO: check force compare
+                atmega
+                    .cpu
+                    .set_data(atmega.cpu.timer0.config.TCCRB as u16, value);
+                atmega.cpu.timer0.update_divider = true;
+                atmega.cpu.clear_clock_event(AVRClockEventType::Count);
+                atmega
+                    .cpu
+                    .add_clock_event(Box::new(CPU::count), 0, AVRClockEventType::Count);
+                // TODO: update wgm config
+                true
+            }),
+        );
+    }
+
+    #[allow(non_snake_case)]
+    pub fn add_TIMSK_write_hook(&mut self, write_hooks: &mut HashMap<u16, PeripheralMemoryHook>) {
+        write_hooks.insert(
+            self.config.TIMSK as u16,
+            Box::new(|atmega, value, _, _, _| {
+                println!("TIMSK hook");
+                atmega
+                    .cpu
+                    .update_interrupt_enable(atmega.cpu.timer0.ovf, value);
+                false
+            }),
+        );
     }
 }
 
@@ -84,3 +152,206 @@ pub const TIMER_0_CONFIG: AVRTimerConfig = AVRTimerConfig {
 
     TOIE: 1,
 };
+
+#[cfg(test)]
+mod timer_tests {
+    use crate::{
+        atmega328p::{ATMega328P, DEFAULT_FREQ},
+        timer::{CS00, CS01, TIMER_0_CONFIG},
+    };
+
+    #[test]
+    fn timer_inc_when_tick_with_prescaler_1() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+
+        // Act
+        atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00); // set prescaler to 1
+        atmega.cpu.cycles = 1;
+        atmega.cpu.tick(); // first tick updates divider
+        atmega.cpu.cycles = 1 + 1; // emulate cycles increment by instruction
+        atmega.cpu.tick(); // increment count
+
+        // Assert
+        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn timer_inc_every_64_ticks() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+
+        // Act
+        atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS01 | CS00); // set prescaler to 64
+        atmega.cpu.cycles = 1;
+        atmega.cpu.tick(); // first tick updates divider
+        atmega.cpu.cycles = 1 + 64; // emulate cycles increment by instruction
+        atmega.cpu.tick(); // increment count
+
+        // Assert
+        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn timer_no_inc_if_prescaler_0() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+
+        // Act
+        atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, 0); // set prescaler to 64
+        atmega.cpu.cycles = 1;
+        atmega.cpu.tick(); // first tick updates divider
+        atmega.cpu.cycles = 1_000; // set to a high cycles count
+        atmega.cpu.tick();
+
+        // Assert
+        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn set_TOV_if_overflow() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+        let top = 0xff;
+
+        // Act & Assert
+        atmega.write_data(TIMER_0_CONFIG.TCNT as u16, top);
+        atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00); // Set prescaler to 1
+        atmega.cpu.cycles = 1;
+        atmega.cpu.tick();
+        // count value set, and overflow flag not yet
+        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        assert_eq!(count, top);
+        assert_eq!(
+            atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
+            0
+        );
+
+        atmega.cpu.cycles += 1;
+        atmega.cpu.tick();
+        // count wraps, and overflow flag set
+        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        assert_eq!(count, 0);
+        assert_eq!(
+            atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
+            TIMER_0_CONFIG.TOV
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn set_TOV_even_if_skip_top() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+        let near_top = 0xfe;
+
+        // Act & Assert
+        atmega.write_data(TIMER_0_CONFIG.TCNT as u16, near_top);
+        atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00); // Set prescaler to 1
+        atmega.cpu.cycles = 1;
+        atmega.cpu.tick();
+        // count value set, and overflow flag not yet
+        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        assert_eq!(count, near_top);
+        assert_eq!(
+            atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
+            0
+        );
+
+        atmega.cpu.cycles += 4;
+        atmega.cpu.tick();
+        // count wraps, and overflow flag set
+        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        assert_eq!(count, 2);
+        assert_eq!(
+            atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
+            TIMER_0_CONFIG.TOV
+        );
+    }
+
+    #[test]
+    fn overflow_interrupt() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+        let top = 0xff;
+
+        // Act
+        atmega.write_data(TIMER_0_CONFIG.TCNT as u16, top);
+        atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00);
+        atmega.cpu.cycles = 1;
+        atmega.cpu.tick();
+        atmega.write_data(TIMER_0_CONFIG.TIMSK as u16, TIMER_0_CONFIG.TOIE); // enable overflow interrupt
+        atmega.cpu.set_sreg(1 << 7); // enable global interrupt
+        atmega.cpu.cycles = 2;
+        atmega.cpu.tick();
+
+        // Assert
+        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        assert_eq!(count, 2); // 0xff + 1 + 2, where 2 is the 2 cycles for the interrupt
+        assert_eq!(
+            atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
+            0
+        ); // overflow flag cleared
+        assert_eq!(atmega.cpu.pc, TIMER_0_CONFIG.ovf_interrupt as u32); // overflow interrupt handler address
+        assert_eq!(atmega.cpu.cycles, 4);
+    }
+
+    #[test]
+    fn no_overflow_interrupt_if_global_disabled() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+        let top = 0xff;
+
+        // Act
+        atmega.write_data(TIMER_0_CONFIG.TCNT as u16, top);
+        atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00);
+        atmega.cpu.cycles = 1;
+        atmega.cpu.tick();
+        atmega.write_data(TIMER_0_CONFIG.TIMSK as u16, TIMER_0_CONFIG.TOIE); // enable overflow interrupt
+        atmega.cpu.set_sreg(0); // disable global interrupt
+        atmega.cpu.cycles = 2;
+        atmega.cpu.tick();
+
+        // Assert
+        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        assert_eq!(count, 0); // 0xff + 1
+        assert_eq!(
+            atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
+            TIMER_0_CONFIG.TOV
+        ); // overflow flag set
+        assert_eq!(atmega.cpu.pc, 0); // unchanged
+        assert_eq!(atmega.cpu.cycles, 2); // unchanged
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn no_overflow_interrupt_if_TOIE_clear() {
+        // Arrange
+        let mut atmega = ATMega328P::new("", DEFAULT_FREQ);
+        let top = 0xff;
+
+        // Act
+        atmega.write_data(TIMER_0_CONFIG.TCNT as u16, top);
+        atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00);
+        atmega.cpu.cycles = 1;
+        atmega.cpu.tick();
+        atmega.write_data(TIMER_0_CONFIG.TIMSK as u16, 0); // enable overflow interrupt
+        atmega.cpu.set_sreg(1 << 7); // enable global interrupt
+        atmega.cpu.cycles = 2;
+        atmega.cpu.tick();
+
+        // Assert
+        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        assert_eq!(count, 0); // 0xff + 1
+        assert_eq!(
+            atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
+            TIMER_0_CONFIG.TOV
+        ); // overflow flag set
+        assert_eq!(atmega.cpu.pc, 0); // unchanged
+        assert_eq!(atmega.cpu.cycles, 2); // unchanged
+    }
+}
