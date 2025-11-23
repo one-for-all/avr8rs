@@ -163,9 +163,21 @@ impl AVRTimer {
             }),
         );
     }
+
+    pub fn tccrb(&self, cpu: &CPU) -> u8 {
+        cpu.get_data(self.config.TCCRB as u16)
+    }
+
+    pub fn cs(&self, cpu: &CPU) -> u8 {
+        self.tccrb(cpu) & 0x7
+    }
 }
 
 impl ATMega328P {
+    pub fn timer0_cs(&self) -> u8 {
+        self.cpu.timer0.cs(&self.cpu)
+    }
+
     pub fn count(&mut self, reschedule: bool, external: bool) {
         // println!("count");
         // println!("cpu cycles: {}", self.cycles);
@@ -208,7 +220,7 @@ impl ATMega328P {
         }
         // TODO: handle if tcntUpdated
         if self.cpu.timer0.update_divider {
-            let cs = self.cpu.timer0_cs();
+            let cs = self.timer0_cs();
             let timer01_dividers = [0, 1, 8, 64, 256, 1024, 0, 0];
             let new_divider = timer01_dividers[cs as usize];
 

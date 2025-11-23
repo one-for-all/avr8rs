@@ -198,14 +198,6 @@ impl CPU {
         false
     }
 
-    pub fn timer0_tccrb(&self) -> u8 {
-        self.get_data(self.timer0.config.TCCRB as u16)
-    }
-
-    pub fn timer0_cs(&self) -> u8 {
-        self.timer0_tccrb() & 0x7
-    }
-
     pub fn set_interrupt_flag(&mut self, interrupt: AVRInterruptConfig) {
         let flag_register = interrupt.flag_register;
         let flag_mask = interrupt.flag_mask;
