@@ -1,18 +1,13 @@
 use std::{
-    any::Any,
     fs::File,
     io::{BufReader, Read},
 };
 
 use avr8rs::{
     Float,
-    atmega328p::ATMega328P,
-    cpu::{self, CPU},
     plot::plot,
-    port::{PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
-    program::load_hex,
     runner::AVRRunner,
-    stepper::{Stepper, StepperVoltages, driver::StepperDriver},
+    stepper::{Stepper, driver::StepperDriver},
 };
 
 fn main() {
@@ -27,20 +22,16 @@ fn main() {
     let mut driver = StepperDriver::new();
 
     let mut data: Vec<Float> = vec![];
-    let mut data2 = vec![];
 
-    let final_time = 0.1; //2e-5; //
+    let final_time = 2.1; //2e-5; //
     let Hz = 16e6; // 16 MHz
     let dt = 1. / Hz;
     let n_steps = (final_time / dt) as usize;
 
+    let load_torque = 0.;
+
     let mut s = 0;
-    let mut PD = 0.;
-    let mut PB = 0.;
-    let mut count = 0;
-
     let mut motor_s = 0;
-
     while s < n_steps {
         // print!("cycle: {} ", s);
 
@@ -48,57 +39,29 @@ fn main() {
         runner.step();
         let delta_cycles = (runner.atmega328p.cpu.cycles - cycles) as usize;
 
-        // let ap = get_voltage(&runner.cpu, 2);
-        // let am = get_voltage(&runner.cpu, 3);
-        // let bp = get_voltage(&runner.cpu, 1);
-        // let bm = get_voltage(&runner.cpu, 0);
-
-        // let voltages = StepperVoltages { ap, am, bp, bm };
         for _ in 0..delta_cycles {
-            // stepper.step_voltage(dt, &voltages);
-
-            driver.step(runner.atmega328p.port_pin_state("D", 3));
-
-            // let new_PD = get_voltage(&runner.cpu, "D", 3);
-            // data.push(new_PD);
-            // if PD == 0. && new_PD == 1. {
-            //     println!("step: {}", s);
-            //     count += 1;
-            // }
-            // PD = new_PD;
-
-            let new_PB = get_voltage(&runner.atmega328p, "B", 3);
-            if PB == 0. && new_PB == 1. {
-                println!("step: {}", s);
-            }
-            data2.push(new_PB);
-            PB = new_PB;
+            let step_pin = runner.atmega328p.port_pin_state("D", 3);
+            let dir_pin = runner.atmega328p.port_pin_state("D", 2);
+            driver.step(step_pin, dir_pin);
         }
-
-        if runner.atmega328p.cpu.data[PORTB_CONFIG.DDR as usize] == 0b11111111 {
-            println!("finished");
-            return;
-        }
-
-        s += delta_cycles;
 
         if s % 100 == 0 {
             let currents = driver.currents();
-            stepper.step(dt * (s - motor_s) as Float, currents.0, currents.1, 0.1);
+            stepper.step(
+                dt * (s - motor_s) as Float,
+                currents.0,
+                currents.1,
+                load_torque,
+            );
             for _ in 0..s - motor_s {
-                data2.push(stepper.theta);
+                data.push(stepper.theta);
             }
             motor_s = s;
         }
+        s += delta_cycles;
     }
 
-    println!("SREG: {:08b}", runner.atmega328p.cpu.sreg());
-    println!(
-        "cycles per char: {}",
-        runner.atmega328p.usart_cycles_per_char()
-    );
-
-    // println!("theta: {}", stepper.theta);
+    println!("final theta: {}", stepper.theta);
     // println!("step count: {}", count);
     // println!("PD3: {:?}", get_voltage(&runner.cpu, "D", 3));
 
@@ -108,13 +71,6 @@ fn main() {
     // println!("PIND: {:08b}", runner.cpu.data[PORTD_CONFIG.PIN as usize]);
 
     // plot(&data, final_time, dt, n_steps, "PD3");
-    // plot(&data2, final_time, dt, n_steps, "PB3");
-}
 
-fn get_voltage(atmega: &ATMega328P, key: &str, i: u8) -> Float {
-    match atmega.port_pin_state(key, i) {
-        avr8rs::port::PinState::Low => 0.,
-        avr8rs::port::PinState::High => 1.,
-        _ => 0.,
-    }
+    plot(&data, dt, "stepper motor");
 }

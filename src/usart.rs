@@ -50,6 +50,8 @@ pub struct AVRUSART {
 
     pub udre: AVRInterruptConfig,
     pub txc: AVRInterruptConfig,
+
+    pub buf: Vec<u8>, // buffer for string outputs
 }
 
 impl AVRUSART {
@@ -73,6 +75,7 @@ impl AVRUSART {
             freq_hz,
             udre: urde,
             txc,
+            buf: Vec::new(),
         }
     }
 
@@ -103,7 +106,11 @@ impl AVRUSART {
         write_hooks.insert(
             self.config.UDR as u16,
             Box::new(|atmega, value, _, _, _| {
-                println!("usart: {}", str::from_utf8(&[value]).unwrap());
+                atmega.usart.buf.push(value);
+                if value == b'\n' || value == b'\r' {
+                    print!("{}", str::from_utf8(&atmega.usart.buf).unwrap());
+                    atmega.usart.buf = Vec::new();
+                }
 
                 atmega.cpu.add_clock_event(
                     Box::new(|atmega: &mut ATMega328P, _, _| {

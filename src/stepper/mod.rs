@@ -9,8 +9,6 @@ const P: usize = 50; // pole-pairs
 
 const I_MAX: Float = 1.0;
 
-const LOAD_TORQUE: Float = -0.1; // 0.1; // constant external load torque [N*m]
-
 pub struct StepperVoltages {
     pub ap: Float,
     pub am: Float,
@@ -46,12 +44,12 @@ impl Stepper {
         self.theta += self.omega * dt;
     }
 
-    pub fn step_voltage(&mut self, dt: Float, voltages: &StepperVoltages) {
+    pub fn step_voltage(&mut self, dt: Float, voltages: &StepperVoltages, load_torque: Float) {
         let ia = self.current(voltages.ap, voltages.am);
         let ib = self.current(voltages.bp, voltages.bm);
         let torque = self.electromagnetic_torque(ia, ib);
 
-        let domega_dt = (torque - B * self.omega - LOAD_TORQUE) / J;
+        let domega_dt = (torque - B * self.omega - load_torque) / J;
 
         self.omega += domega_dt * dt;
         self.theta += self.omega * dt;
@@ -92,7 +90,7 @@ mod stepper_tests {
         data.push(stepper.theta);
 
         // Assert
-        plot(&data, t_final, dt, n_steps, "stepper");
+        // plot(&data, t_final, dt, n_steps, "stepper");
         println!("final theta: {}", stepper.theta);
         println!("expect theta: {}", full_step / 2.);
         assert_close!(stepper.theta, full_step / 2., 1e-5);
@@ -118,7 +116,7 @@ mod stepper_tests {
         }
 
         // Assert
-        plot(&data, t_final, dt, n_steps, "stepper");
+        // plot(&data, t_final, dt, n_steps, "stepper");
         println!("final theta: {}", stepper.theta);
         println!("expect theta: {}", half_step);
         assert_close!(stepper.theta, half_step, 1e-5);

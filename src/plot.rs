@@ -1,7 +1,7 @@
 use crate::Float;
 use plotters::prelude::*;
 
-pub fn plot(data: &Vec<Float>, t_final: Float, dt: Float, n_steps: usize, fname: &str) {
+pub fn plot(data: &Vec<Float>, dt: Float, fname: &str) {
     // Determine y-axis limits based on the minimum and maximum values in the data
     let min_y = data.iter().cloned().fold(Float::INFINITY, Float::min);
     let max_y = data.iter().cloned().fold(Float::NEG_INFINITY, Float::max);
@@ -17,7 +17,7 @@ pub fn plot(data: &Vec<Float>, t_final: Float, dt: Float, n_steps: usize, fname:
         .margin(10)
         .x_label_area_size(30)
         .y_label_area_size(50)
-        .build_cartesian_2d(0.0..t_final, min_y..max_y)
+        .build_cartesian_2d(0.0..(data.len() as Float * dt), min_y..max_y)
         .unwrap();
 
     // Customize the chart
@@ -25,7 +25,7 @@ pub fn plot(data: &Vec<Float>, t_final: Float, dt: Float, n_steps: usize, fname:
 
     // Plot the data
     let _ = chart.draw_series(LineSeries::new(
-        (0..n_steps).map(|i| (i as Float * dt, data[i])),
+        (0..data.len()).map(|i| (i as Float * dt, data[i])),
         &BLUE,
     ));
 }
