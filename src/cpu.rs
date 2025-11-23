@@ -24,7 +24,6 @@ pub struct CPU {
 
     pub pc_22_bits: bool, // Whether the program counter (PC) can address 22 bits (the default is 16)
 
-    pub usart: AVRUSART,
     pub next_interrupt: i16,
     max_interrupt: i16,
 }
@@ -42,8 +41,6 @@ impl CPU {
             .collect();
         let pc_22_bits = prog_bytes.len() > 0x20000;
 
-        let usart = AVRUSART::new(USART0_CONFIG, freq_hz);
-
         let mut cpu = Self {
             data: vec![0; SRAM_BYTES + REGISTER_SPACE],
             prog_mem,
@@ -53,7 +50,6 @@ impl CPU {
             pending_interrupts: [None; MAX_INTERRUPTS],
             next_clock_event: None,
             pc_22_bits,
-            usart,
             next_interrupt: -1,
             max_interrupt: 0,
         };

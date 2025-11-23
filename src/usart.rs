@@ -107,8 +107,8 @@ impl AVRUSART {
 
                 atmega.cpu.add_clock_event(
                     Box::new(|atmega: &mut ATMega328P, _, _| {
-                        atmega.cpu.set_interrupt_flag(atmega.cpu.usart.udre);
-                        atmega.cpu.set_interrupt_flag(atmega.cpu.usart.txc);
+                        atmega.cpu.set_interrupt_flag(atmega.usart.udre);
+                        atmega.cpu.set_interrupt_flag(atmega.usart.txc);
                     }),
                     atmega.usart_cycles_per_char(),
                     crate::clock::AVRClockEventType::USART,
