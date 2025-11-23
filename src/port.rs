@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    atmega328p::{ATMega328P, PeripheralMemoryHook},
+    atmega328p::{ATMega328P, PeripheralMemoryWriteHook},
     ternary,
 };
 
@@ -49,7 +49,7 @@ impl AVRIOPort {
 
     pub fn add_ddr_handler(
         &self,
-        write_hooks: &mut HashMap<u16, PeripheralMemoryHook>,
+        write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>,
         port_id: usize,
     ) {
         write_hooks.insert(
@@ -75,7 +75,7 @@ impl AVRIOPort {
 
     pub fn add_port_handler(
         &self,
-        write_hooks: &mut HashMap<u16, PeripheralMemoryHook>,
+        write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>,
         port_id: usize,
     ) {
         write_hooks.insert(

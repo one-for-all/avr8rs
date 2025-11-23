@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    atmega328p::{ATMega328P, PeripheralMemoryHook},
+    atmega328p::{ATMega328P, PeripheralMemoryWriteHook},
     cpu::CPU,
     interrupt::AVRInterruptConfig,
     ternary,
@@ -77,7 +77,7 @@ impl AVRUSART {
     }
 
     /// USART Control and Status Register handler
-    pub fn add_ucsrb_handler(&self, write_hooks: &mut HashMap<u16, PeripheralMemoryHook>) {
+    pub fn add_ucsrb_handler(&self, write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>) {
         write_hooks.insert(
             self.config.UCSRB as u16,
             Box::new(|atmega, value, old_value, _, _| {
@@ -99,7 +99,7 @@ impl AVRUSART {
         );
     }
 
-    pub fn add_udr_handler(&self, write_hooks: &mut HashMap<u16, PeripheralMemoryHook>) {
+    pub fn add_udr_handler(&self, write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>) {
         write_hooks.insert(
             self.config.UDR as u16,
             Box::new(|atmega, value, _, _, _| {

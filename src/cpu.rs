@@ -12,17 +12,12 @@ const SRAM_BYTES: usize = 8192;
 const REGISTER_SPACE: usize = 0x100;
 const SREG: usize = 95;
 
-pub type CPUMemoryReadHook = Box<dyn Fn(&mut CPU, u16) -> u8>;
-pub type CPUMemoryHook = Box<dyn Fn(&mut CPU, u8, u8, u16, u8) -> bool>;
-
 pub struct CPU {
     pub data: Vec<u8>,
     pub prog_mem: Vec<u16>,
     pub prog_bytes: Vec<u8>,
     pub pc: u32,     // program counter
     pub cycles: u32, // clock cycle counter
-
-    read_hooks: HashMap<u16, CPUMemoryReadHook>,
 
     pub pending_interrupts: [Option<AVRInterruptConfig>; MAX_INTERRUPTS], // TODO: optimize this data structure for space
     pub next_clock_event: Option<Box<AVRClockEventEntry>>,
@@ -59,7 +54,6 @@ impl CPU {
             prog_bytes,
             pc: 0,
             cycles: 0,
-            read_hooks: HashMap::new(),
             pending_interrupts: [None; MAX_INTERRUPTS],
             next_clock_event: None,
             pc_22_bits,
@@ -69,16 +63,16 @@ impl CPU {
             max_interrupt: 0,
         };
 
-        // Timer0 setup
-        cpu.read_hooks.insert(
-            cpu.timer0.config.TCNT as u16,
-            Box::new(|cpu, addr| {
-                cpu.count(false, false);
-                let data = (cpu.timer0.tcnt & 0xff) as u8;
-                cpu.set_data(addr, data);
-                data
-            }),
-        );
+        // // Timer0 setup
+        // cpu.read_hooks.insert(
+        //     cpu.timer0.config.TCNT as u16,
+        //     Box::new(|cpu, addr| {
+        //         cpu.count(false, false);
+        //         let data = (cpu.timer0.tcnt & 0xff) as u8;
+        //         cpu.set_data(addr, data);
+        //         data
+        //     }),
+        // );
 
         cpu.reset();
 
@@ -115,17 +109,6 @@ impl CPU {
         let bytes = data.to_le_bytes();
         self.set_data(addr, bytes[0]);
         self.set_data(addr + 1, bytes[1]);
-    }
-
-    pub fn read_data(&mut self, addr: u16) -> u8 {
-        if addr >= 32
-            && let Some((addr, read_hook)) = self.read_hooks.remove_entry(&addr)
-        {
-            let result = read_hook(self, addr);
-            self.read_hooks.insert(addr, read_hook);
-            return result;
-        }
-        self.get_data(addr)
     }
 
     pub fn add_clock_event(

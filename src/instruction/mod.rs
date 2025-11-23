@@ -170,7 +170,7 @@ pub fn avr_instruction(atmega328p: &mut ATMega328P) {
             /* CBI, 1001 1000 AAAA Abbb */
             let A = opcode & 0xf8;
             let b = opcode & 7;
-            let R = atmega328p.cpu.read_data((A >> 3) + 32);
+            let R = atmega328p.read_data((A >> 3) + 32);
             let mask = 1 << b;
             atmega328p.write_data_with_mask((A >> 3) + 32, R & !mask, mask);
         }
@@ -326,9 +326,7 @@ pub fn avr_instruction(atmega328p: &mut ATMega328P) {
         }
         instructions::Instruction::IN => {
             /* IN, 1011 0AAd dddd AAAA */
-            let i = atmega328p
-                .cpu
-                .read_data(((opcode & 0xf) | ((opcode & 0x600) >> 5)) + 32);
+            let i = atmega328p.read_data(((opcode & 0xf) | ((opcode & 0x600) >> 5)) + 32);
             atmega328p.cpu.set_data((opcode & 0x1f0) >> 4, i);
         }
         instructions::Instruction::INC => {
@@ -365,37 +363,36 @@ pub fn avr_instruction(atmega328p: &mut ATMega328P) {
         instructions::Instruction::LDS => {
             /* LDS, 1001 000d dddd 0000 kkkk kkkk kkkk kkkk */
             atmega328p.cpu.cycles += 1;
-            let value = atmega328p
-                .cpu
-                .read_data(atmega328p.cpu.prog_mem[(atmega328p.cpu.pc + 1) as usize]);
+            let value =
+                atmega328p.read_data(atmega328p.cpu.prog_mem[(atmega328p.cpu.pc + 1) as usize]);
             atmega328p.cpu.set_data((opcode & 0x1f0) >> 4, value);
             atmega328p.cpu.pc += 1;
         }
         instructions::Instruction::LDX => {
             /* LDX, 1001 000d dddd 1100 */
             atmega328p.cpu.cycles += 1;
-            let data = atmega328p.cpu.read_data(atmega328p.cpu.get_data_u16(26));
+            let data = atmega328p.read_data(atmega328p.cpu.get_data_u16(26));
             atmega328p.cpu.set_data((opcode & 0x1f0) >> 4, data);
         }
         instructions::Instruction::LDX_INC => {
             /* LDX(INC), 1001 000d dddd 1101 */
             let x = atmega328p.cpu.get_data_u16(26);
             atmega328p.cpu.cycles += 1;
-            let data = atmega328p.cpu.read_data(x);
+            let data = atmega328p.read_data(x);
             atmega328p.cpu.set_data((opcode & 0x1f0) >> 4, data);
             atmega328p.cpu.set_data_u16(26, x + 1);
         }
         instructions::Instruction::LDY => {
             /* LDY, 1000 000d dddd 1000 */
             atmega328p.cpu.cycles += 1;
-            let data = atmega328p.cpu.read_data(atmega328p.cpu.get_data_u16(28));
+            let data = atmega328p.read_data(atmega328p.cpu.get_data_u16(28));
             atmega328p.cpu.set_data((opcode & 0x1f0) >> 4, data);
         }
         instructions::Instruction::LDY_INC => {
             /* LDY(INC), 1001 000d dddd 1001 */
             let y = atmega328p.cpu.get_data_u16(28);
             atmega328p.cpu.cycles += 1;
-            let data = atmega328p.cpu.read_data(y);
+            let data = atmega328p.read_data(y);
             atmega328p.cpu.set_data((opcode & 0x1f0) >> 4, data);
             atmega328p.cpu.set_data_u16(28, y + 1);
         }
@@ -404,20 +401,20 @@ pub fn avr_instruction(atmega328p: &mut ATMega328P) {
             atmega328p.cpu.cycles += 1;
             let addr = atmega328p.cpu.get_data_u16(28)
                 + ((opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8));
-            let data = atmega328p.cpu.read_data(addr);
+            let data = atmega328p.read_data(addr);
             atmega328p.cpu.set_data((opcode & 0x1f0) >> 4, data);
         }
         instructions::Instruction::LDZ => {
             /* LDZ, 1000 000d dddd 0000 */
             atmega328p.cpu.cycles += 1;
-            let data = atmega328p.cpu.read_data(atmega328p.cpu.get_data_u16(30));
+            let data = atmega328p.read_data(atmega328p.cpu.get_data_u16(30));
             atmega328p.cpu.set_data((opcode & 0x1f0) >> 4, data);
         }
         instructions::Instruction::LDZ_INC => {
             /* LDZ(INC), 1001 000d dddd 0001 */
             let z = atmega328p.cpu.get_data_u16(30);
             atmega328p.cpu.cycles += 1;
-            let data = atmega328p.cpu.read_data(z);
+            let data = atmega328p.read_data(z);
             atmega328p.cpu.set_data((opcode & 0x1f0) >> 4, data);
             atmega328p.cpu.set_data_u16(30, z + 1);
         }
@@ -426,7 +423,7 @@ pub fn avr_instruction(atmega328p: &mut ATMega328P) {
             atmega328p.cpu.cycles += 1;
             let addr = atmega328p.cpu.get_data_u16(30)
                 + ((opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8));
-            let data = atmega328p.cpu.read_data(addr);
+            let data = atmega328p.read_data(addr);
             atmega328p.cpu.set_data((opcode & 0x1f0) >> 4, data);
         }
         instructions::Instruction::LPM_REG => {
@@ -660,13 +657,13 @@ pub fn avr_instruction(atmega328p: &mut ATMega328P) {
             /* SBI, 1001 1010 AAAA Abbb */
             let target = ((opcode & 0xf8) >> 3) + 32;
             let mask = 1 << (opcode & 7);
-            let data = atmega328p.cpu.read_data(target) | mask;
+            let data = atmega328p.read_data(target) | mask;
             atmega328p.write_data_with_mask(target, data, mask);
             atmega328p.cpu.cycles += 1;
         }
         instructions::Instruction::SBIS => {
             /* SBIS, 1001 1011 AAAA Abbb */
-            let value = atmega328p.cpu.read_data(((opcode & 0xf8) >> 3) + 32);
+            let value = atmega328p.read_data(((opcode & 0xf8) >> 3) + 32);
             if value & (1 << (opcode & 7)) != 0 {
                 let next_opcode = atmega328p.cpu.prog_mem[(atmega328p.cpu.pc + 1) as usize];
                 let skip_size = if is_two_word_instruction(next_opcode) {

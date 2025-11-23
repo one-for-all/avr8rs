@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    atmega328p::PeripheralMemoryHook, clock::AVRClockEventType, cpu::CPU,
+    atmega328p::{PeripheralMemoryReadHook, PeripheralMemoryWriteHook},
+    clock::AVRClockEventType,
+    cpu::CPU,
     interrupt::AVRInterruptConfig,
 };
 
@@ -82,7 +84,23 @@ impl AVRTimer {
     }
 
     #[allow(non_snake_case)]
-    pub fn add_TCNT_write_hook(&mut self, write_hooks: &mut HashMap<u16, PeripheralMemoryHook>) {
+    pub fn add_TCNT_read_hook(&mut self, read_hooks: &mut HashMap<u16, PeripheralMemoryReadHook>) {
+        read_hooks.insert(
+            self.config.TCNT as u16,
+            Box::new(|atmega, addr| {
+                atmega.cpu.count(false, false);
+                let data = (atmega.cpu.timer0.tcnt & 0xff) as u8;
+                atmega.cpu.set_data(addr, data);
+                data
+            }),
+        );
+    }
+
+    #[allow(non_snake_case)]
+    pub fn add_TCNT_write_hook(
+        &mut self,
+        write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>,
+    ) {
         write_hooks.insert(
             self.config.TCNT as u16,
             Box::new(|atmega, value, _, _, _| {
@@ -104,7 +122,10 @@ impl AVRTimer {
     }
 
     #[allow(non_snake_case)]
-    pub fn add_TCCRB_write_hook(&mut self, write_hooks: &mut HashMap<u16, PeripheralMemoryHook>) {
+    pub fn add_TCCRB_write_hook(
+        &mut self,
+        write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>,
+    ) {
         write_hooks.insert(
             self.config.TCCRB as u16,
             Box::new(|atmega, value, _, _, _| {
@@ -124,7 +145,10 @@ impl AVRTimer {
     }
 
     #[allow(non_snake_case)]
-    pub fn add_TIMSK_write_hook(&mut self, write_hooks: &mut HashMap<u16, PeripheralMemoryHook>) {
+    pub fn add_TIMSK_write_hook(
+        &mut self,
+        write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>,
+    ) {
         write_hooks.insert(
             self.config.TIMSK as u16,
             Box::new(|atmega, value, _, _, _| {
@@ -136,6 +160,8 @@ impl AVRTimer {
             }),
         );
     }
+
+    // pub fn count
 }
 
 pub const TIMER_0_CONFIG: AVRTimerConfig = AVRTimerConfig {
@@ -173,7 +199,7 @@ mod timer_tests {
         atmega.cpu.tick(); // increment count
 
         // Assert
-        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, 1);
     }
 
@@ -190,7 +216,7 @@ mod timer_tests {
         atmega.cpu.tick(); // increment count
 
         // Assert
-        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, 1);
     }
 
@@ -207,7 +233,7 @@ mod timer_tests {
         atmega.cpu.tick();
 
         // Assert
-        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, 0);
     }
 
@@ -224,7 +250,7 @@ mod timer_tests {
         atmega.cpu.cycles = 1;
         atmega.cpu.tick();
         // count value set, and overflow flag not yet
-        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, top);
         assert_eq!(
             atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
@@ -234,7 +260,7 @@ mod timer_tests {
         atmega.cpu.cycles += 1;
         atmega.cpu.tick();
         // count wraps, and overflow flag set
-        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, 0);
         assert_eq!(
             atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
@@ -255,7 +281,7 @@ mod timer_tests {
         atmega.cpu.cycles = 1;
         atmega.cpu.tick();
         // count value set, and overflow flag not yet
-        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, near_top);
         assert_eq!(
             atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
@@ -265,7 +291,7 @@ mod timer_tests {
         atmega.cpu.cycles += 4;
         atmega.cpu.tick();
         // count wraps, and overflow flag set
-        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, 2);
         assert_eq!(
             atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
@@ -290,7 +316,7 @@ mod timer_tests {
         atmega.cpu.tick();
 
         // Assert
-        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, 2); // 0xff + 1 + 2, where 2 is the 2 cycles for the interrupt
         assert_eq!(
             atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
@@ -317,7 +343,7 @@ mod timer_tests {
         atmega.cpu.tick();
 
         // Assert
-        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, 0); // 0xff + 1
         assert_eq!(
             atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,
@@ -345,7 +371,7 @@ mod timer_tests {
         atmega.cpu.tick();
 
         // Assert
-        let count = atmega.cpu.read_data(TIMER_0_CONFIG.TCNT as u16);
+        let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, 0); // 0xff + 1
         assert_eq!(
             atmega.cpu.data[TIMER_0_CONFIG.TIFR as usize] & TIMER_0_CONFIG.TOV,

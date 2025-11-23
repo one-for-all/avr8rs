@@ -10,7 +10,8 @@ use crate::{
 
 pub const DEFAULT_FREQ: usize = 16_000_000; // 16Mhz
 
-pub type PeripheralMemoryHook = Box<dyn Fn(&mut ATMega328P, u8, u8, u16, u8) -> bool>;
+pub type PeripheralMemoryReadHook = Box<dyn Fn(&mut ATMega328P, u16) -> u8>;
+pub type PeripheralMemoryWriteHook = Box<dyn Fn(&mut ATMega328P, u8, u8, u16, u8) -> bool>;
 
 pub struct ATMega328P {
     pub cpu: CPU,
@@ -20,7 +21,8 @@ pub struct ATMega328P {
     pub ports: [AVRIOPort; 3], // B, C, D
 
     // data hooks
-    pub write_hooks: HashMap<u16, PeripheralMemoryHook>,
+    pub read_hooks: HashMap<u16, PeripheralMemoryReadHook>,
+    pub write_hooks: HashMap<u16, PeripheralMemoryWriteHook>,
 }
 
 impl ATMega328P {
@@ -28,23 +30,29 @@ impl ATMega328P {
         let prog = load_hex(&hex);
         let mut cpu = CPU::new(prog, freq_hz);
 
-        let mut write_hooks: HashMap<u16, PeripheralMemoryHook> = HashMap::new();
+        let usart = AVRUSART::new(USART0_CONFIG, freq_hz);
+        let port_b = AVRIOPort::new(PORTB_CONFIG);
+        let port_c = AVRIOPort::new(PORTC_CONFIG);
+        let port_d = AVRIOPort::new(PORTD_CONFIG);
+
+        let mut read_hooks: HashMap<u16, PeripheralMemoryReadHook> = HashMap::new();
+
+        // Timer
+        cpu.timer0.add_TCNT_read_hook(&mut read_hooks);
+
+        let mut write_hooks: HashMap<u16, PeripheralMemoryWriteHook> = HashMap::new();
 
         // Universal Synchronous/Asynchronous Receiver Transmitter
-        let usart = AVRUSART::new(USART0_CONFIG, freq_hz);
         usart.add_ucsrb_handler(&mut write_hooks);
         usart.add_udr_handler(&mut write_hooks);
 
         // GPIO Ports
-        let port_b = AVRIOPort::new(PORTB_CONFIG);
         port_b.add_ddr_handler(&mut write_hooks, 0);
         port_b.add_port_handler(&mut write_hooks, 0);
 
-        let port_c = AVRIOPort::new(PORTC_CONFIG);
         port_c.add_ddr_handler(&mut write_hooks, 1);
         port_c.add_port_handler(&mut write_hooks, 1);
 
-        let port_d = AVRIOPort::new(PORTD_CONFIG);
         port_d.add_ddr_handler(&mut write_hooks, 2);
         port_d.add_port_handler(&mut write_hooks, 2);
 
@@ -59,10 +67,22 @@ impl ATMega328P {
             cpu,
             usart,
             ports,
+            read_hooks,
             write_hooks,
         };
 
         atmega328p
+    }
+
+    pub fn read_data(&mut self, addr: u16) -> u8 {
+        if addr >= 32
+            && let Some((addr, read_hook)) = self.read_hooks.remove_entry(&addr)
+        {
+            let result = read_hook(self, addr);
+            self.read_hooks.insert(addr, read_hook);
+            return result;
+        }
+        self.cpu.get_data(addr)
     }
 
     pub fn write_data(&mut self, addr: u16, data: u8) {
