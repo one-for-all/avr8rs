@@ -60,7 +60,13 @@ pub struct AVRTimer {
 
 impl AVRTimer {
     pub fn new(config: AVRTimerConfig) -> Self {
-        let ovf = AVRInterruptConfig::new(&config);
+        let ovf = AVRInterruptConfig {
+            address: config.ovf_interrupt,
+            enable_register: config.TIMSK as u16,
+            enable_mask: config.TOIE,
+            flag_register: config.TIFR as u16,
+            flag_mask: config.TOV,
+        };
         AVRTimer {
             max: 0xff, // config.bits === 16 ? 0xffff : 0xff;
             config,

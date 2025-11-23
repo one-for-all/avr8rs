@@ -31,7 +31,7 @@ pub struct ATMega328P {
 impl ATMega328P {
     pub fn new(hex: &str, freq_hz: usize) -> Self {
         let prog = load_hex(&hex);
-        let cpu = CPU::new(prog, freq_hz);
+        let cpu = CPU::new(prog);
 
         let timer0 = AVRTimer::new(TIMER_0_CONFIG);
         let usart = AVRUSART::new(USART0_CONFIG, freq_hz);

@@ -11,18 +11,6 @@ pub struct AVRInterruptConfig {
     pub flag_mask: u8,
 }
 
-impl AVRInterruptConfig {
-    pub fn new(config: &AVRTimerConfig) -> Self {
-        AVRInterruptConfig {
-            address: config.ovf_interrupt,
-            enable_register: config.TIMSK as u16,
-            enable_mask: config.TOIE,
-            flag_register: config.TIFR as u16,
-            flag_mask: config.TOV,
-        }
-    }
-}
-
 pub fn avr_interrupt(cpu: &mut CPU, addr: u8) {
     let sp = cpu.get_data_u16(93);
     cpu.set_data(sp, (cpu.pc & 0xff) as u8);

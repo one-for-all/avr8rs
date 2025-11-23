@@ -1,11 +1,6 @@
-use std::collections::HashMap;
-
 use crate::{
     clock::{AVRClockEventCallback, AVRClockEventEntry, AVRClockEventType},
-    interrupt::{AVRInterruptConfig, MAX_INTERRUPTS, avr_interrupt},
-    ternary,
-    timer::{AVRTimer, OCRUpdateMode, TIMER_0_CONFIG},
-    usart::{AVRUSART, USART0_CONFIG},
+    interrupt::{AVRInterruptConfig, MAX_INTERRUPTS},
 };
 
 const SRAM_BYTES: usize = 8192;
@@ -29,7 +24,7 @@ pub struct CPU {
 }
 
 impl CPU {
-    pub fn new(prog_bytes: Vec<u8>, freq_hz: usize) -> Self {
+    pub fn new(prog_bytes: Vec<u8>) -> Self {
         // convert to Vec<u16>
         let prog_mem = prog_bytes
             .chunks(2)
