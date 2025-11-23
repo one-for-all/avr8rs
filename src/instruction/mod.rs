@@ -784,6 +784,14 @@ pub fn avr_instruction(atmega328p: &mut ATMega328P) {
             );
             atmega328p.cpu.cycles += 1;
         }
+        instructions::Instruction::STZ_INC => {
+            /* STZ(INC), 1001 001r rrrr 0001 */
+            let cpu = &atmega328p.cpu;
+            let z = atmega328p.cpu.get_data_u16(30);
+            atmega328p.write_data(z, cpu.get_data((opcode & 0x1f0) >> 4));
+            atmega328p.cpu.set_data_u16(30, z + 1);
+            atmega328p.cpu.cycles += 1;
+        }
         instructions::Instruction::STDZ => {
             /* STDZ, 10q0 qq1r rrrr 0qqq */
             atmega328p.write_data_with_mask(

@@ -68,6 +68,7 @@ pub enum Instruction {
     STX_DEC,
     STDY,
     STZ,
+    STZ_INC,
     STDZ,
     SUB,
     SUBI,
@@ -217,6 +218,8 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::STDY
     } else if opcode & 0xfe0f == 0x8200 {
         Instruction::STZ
+    } else if opcode & 0xfe0f == 0x9201 {
+        Instruction::STZ_INC
     } else if (opcode & 0xd208) == 0x8200
         && (opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8) != 0
     {

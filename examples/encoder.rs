@@ -13,7 +13,7 @@ fn main() {
 
     let mut runner = AVRRunner::new(&buf);
 
-    let final_time = 0.1; //2e-5; //
+    let final_time = 1.0; //2e-5; //
     let Hz = 16e6; // 16 MHz
     let dt = 1. / Hz;
     let n_steps = (final_time / dt) as usize;
