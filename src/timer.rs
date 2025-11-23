@@ -85,12 +85,12 @@ impl AVRTimer {
     }
 
     #[allow(non_snake_case)]
-    pub fn add_TCNT_read_hook(&mut self, read_hooks: &mut HashMap<u16, PeripheralMemoryReadHook>) {
+    pub fn add_TCNT_read_hook(&self, read_hooks: &mut HashMap<u16, PeripheralMemoryReadHook>) {
         read_hooks.insert(
             self.config.TCNT as u16,
             Box::new(|atmega, addr| {
                 atmega.count(false, false);
-                let data = (atmega.cpu.timer0.tcnt & 0xff) as u8;
+                let data = (atmega.timer0.tcnt & 0xff) as u8;
                 atmega.cpu.set_data(addr, data);
                 data
             }),
@@ -98,17 +98,13 @@ impl AVRTimer {
     }
 
     #[allow(non_snake_case)]
-    pub fn add_TCNT_write_hook(
-        &mut self,
-        write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>,
-    ) {
+    pub fn add_TCNT_write_hook(&self, write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>) {
         write_hooks.insert(
             self.config.TCNT as u16,
             Box::new(|atmega, value, _, _, _| {
-                atmega.cpu.timer0.tcnt_next =
-                    value as u16 | (atmega.cpu.timer0.high_byte_temp as u16) << 8;
+                atmega.timer0.tcnt_next = value as u16 | (atmega.timer0.high_byte_temp as u16) << 8;
                 // atmega.cpu.timer0.counting_up = true;
-                atmega.cpu.timer0.tcnt_updated = true;
+                atmega.timer0.tcnt_updated = true;
                 atmega.cpu.update_clock_event(
                     Box::new(ATMega328P::count),
                     crate::clock::AVRClockEventType::Count,
@@ -123,18 +119,15 @@ impl AVRTimer {
     }
 
     #[allow(non_snake_case)]
-    pub fn add_TCCRB_write_hook(
-        &mut self,
-        write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>,
-    ) {
+    pub fn add_TCCRB_write_hook(&self, write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>) {
         write_hooks.insert(
             self.config.TCCRB as u16,
             Box::new(|atmega, value, _, _, _| {
                 // TODO: check force compare
                 atmega
                     .cpu
-                    .set_data(atmega.cpu.timer0.config.TCCRB as u16, value);
-                atmega.cpu.timer0.update_divider = true;
+                    .set_data(atmega.timer0.config.TCCRB as u16, value);
+                atmega.timer0.update_divider = true;
                 atmega.cpu.clear_clock_event(AVRClockEventType::Count);
                 atmega.cpu.add_clock_event(
                     Box::new(ATMega328P::count),
@@ -148,17 +141,12 @@ impl AVRTimer {
     }
 
     #[allow(non_snake_case)]
-    pub fn add_TIMSK_write_hook(
-        &mut self,
-        write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>,
-    ) {
+    pub fn add_TIMSK_write_hook(&self, write_hooks: &mut HashMap<u16, PeripheralMemoryWriteHook>) {
         write_hooks.insert(
             self.config.TIMSK as u16,
             Box::new(|atmega, value, _, _, _| {
                 println!("TIMSK hook");
-                atmega
-                    .cpu
-                    .update_interrupt_enable(atmega.cpu.timer0.ovf, value);
+                atmega.cpu.update_interrupt_enable(atmega.timer0.ovf, value);
                 false
             }),
         );
@@ -175,30 +163,30 @@ impl AVRTimer {
 
 impl ATMega328P {
     pub fn timer0_cs(&self) -> u8 {
-        self.cpu.timer0.cs(&self.cpu)
+        self.timer0.cs(&self.cpu)
     }
 
     pub fn count(&mut self, reschedule: bool, external: bool) {
         // println!("count");
         // println!("cpu cycles: {}", self.cycles);
-        let divider = self.cpu.timer0.divider;
-        let last_cycle = self.cpu.timer0.last_cycle;
+        let divider = self.timer0.divider;
+        let last_cycle = self.timer0.last_cycle;
         let cycles = self.cpu.cycles;
         let delta = (cycles - last_cycle) as u16;
         // println!("delta: {} divider: {}", delta, divider);
         if (divider != 0 && delta >= divider) || external {
             let counter_delta = if external { 1 } else { delta / divider };
-            self.cpu.timer0.last_cycle += counter_delta as u32 * divider as u32;
-            let val = self.cpu.timer0.tcnt;
+            self.timer0.last_cycle += counter_delta as u32 * divider as u32;
+            let val = self.timer0.tcnt;
             // timer mode, assume is normal
-            let TOP = self.cpu.timer0.top();
+            let TOP = self.timer0.top();
             let new_val = (val + counter_delta) % (TOP + 1);
             // println!("val: {}, new val: {}", val, new_val);
             let overflow = val + counter_delta > TOP;
             // A CPU write overrides all counter clear or count operations
             if true {
                 // if !tcntUpdated
-                self.cpu.timer0.tcnt = new_val;
+                self.timer0.tcnt = new_val;
                 // if !phase pwm
                 // self.timer0.timerUpdated(new_val, val);
             }
@@ -209,28 +197,28 @@ impl ATMega328P {
             // if overflow {
             //     println!("overflow");
             // }
-            if overflow && TOP == self.cpu.timer0.max {
-                self.cpu.set_interrupt_flag(self.cpu.timer0.ovf);
+            if overflow && TOP == self.timer0.max {
+                self.cpu.set_interrupt_flag(self.timer0.ovf);
             }
         }
-        if self.cpu.timer0.tcnt_updated {
-            self.cpu.timer0.tcnt = self.cpu.timer0.tcnt_next;
-            self.cpu.timer0.tcnt_updated = false;
+        if self.timer0.tcnt_updated {
+            self.timer0.tcnt = self.timer0.tcnt_next;
+            self.timer0.tcnt_updated = false;
             // TODO: OCR updates
         }
         // TODO: handle if tcntUpdated
-        if self.cpu.timer0.update_divider {
+        if self.timer0.update_divider {
             let cs = self.timer0_cs();
             let timer01_dividers = [0, 1, 8, 64, 256, 1024, 0, 0];
             let new_divider = timer01_dividers[cs as usize];
 
-            self.cpu.timer0.last_cycle = ternary!(new_divider, self.cpu.cycles, 0);
-            self.cpu.timer0.update_divider = false;
-            self.cpu.timer0.divider = new_divider;
+            self.timer0.last_cycle = ternary!(new_divider, self.cpu.cycles, 0);
+            self.timer0.update_divider = false;
+            self.timer0.divider = new_divider;
             if new_divider != 0 {
                 self.cpu.add_clock_event(
                     Box::new(Self::count),
-                    self.cpu.timer0.last_cycle + new_divider as u32 - self.cpu.cycles,
+                    self.timer0.last_cycle + new_divider as u32 - self.cpu.cycles,
                     AVRClockEventType::Count,
                 );
             }
@@ -239,7 +227,7 @@ impl ATMega328P {
         if reschedule && divider != 0 {
             self.cpu.add_clock_event(
                 Box::new(ATMega328P::count),
-                self.cpu.timer0.last_cycle + divider as u32 - self.cpu.cycles,
+                self.timer0.last_cycle + divider as u32 - self.cpu.cycles,
                 AVRClockEventType::Count,
             );
         }

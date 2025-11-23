@@ -6,6 +6,7 @@ use crate::{
     interrupt::avr_interrupt,
     port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
     program::load_hex,
+    timer::{AVRTimer, TIMER_0_CONFIG},
     usart::{AVRUSART, USART0_CONFIG},
 };
 
@@ -18,6 +19,7 @@ pub struct ATMega328P {
     pub cpu: CPU,
 
     // peripherals
+    pub timer0: AVRTimer,
     pub usart: AVRUSART,
     pub ports: [AVRIOPort; 3], // B, C, D
 
@@ -29,8 +31,9 @@ pub struct ATMega328P {
 impl ATMega328P {
     pub fn new(hex: &str, freq_hz: usize) -> Self {
         let prog = load_hex(&hex);
-        let mut cpu = CPU::new(prog, freq_hz);
+        let cpu = CPU::new(prog, freq_hz);
 
+        let timer0 = AVRTimer::new(TIMER_0_CONFIG);
         let usart = AVRUSART::new(USART0_CONFIG, freq_hz);
         let port_b = AVRIOPort::new(PORTB_CONFIG);
         let port_c = AVRIOPort::new(PORTC_CONFIG);
@@ -41,10 +44,10 @@ impl ATMega328P {
         let mut write_hooks: HashMap<u16, PeripheralMemoryWriteHook> = HashMap::new();
 
         // Timer
-        cpu.timer0.add_TCNT_read_hook(&mut read_hooks);
-        cpu.timer0.add_TCNT_write_hook(&mut write_hooks);
-        cpu.timer0.add_TCCRB_write_hook(&mut write_hooks);
-        cpu.timer0.add_TIMSK_write_hook(&mut write_hooks);
+        timer0.add_TCNT_read_hook(&mut read_hooks);
+        timer0.add_TCNT_write_hook(&mut write_hooks);
+        timer0.add_TCCRB_write_hook(&mut write_hooks);
+        timer0.add_TIMSK_write_hook(&mut write_hooks);
 
         // Universal Synchronous/Asynchronous Receiver Transmitter
         usart.add_ucsrb_handler(&mut write_hooks);
@@ -64,6 +67,7 @@ impl ATMega328P {
 
         let atmega328p = Self {
             cpu,
+            timer0,
             usart,
             ports,
             read_hooks,
