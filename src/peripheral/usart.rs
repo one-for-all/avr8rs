@@ -44,6 +44,7 @@ pub const USART0_CONFIG: USARTConfig = USARTConfig {
     UDR: 0xc6,
 };
 
+/// Note: only the Asynchronous mode is implemented
 pub struct AVRUSART {
     pub config: USARTConfig,
     pub freq_hz: usize, // clock frequency
@@ -202,7 +203,7 @@ impl ATMega328P {
 mod usart_tests {
     use crate::{
         atmega328p::{ATMega328P, DEFAULT_FREQ},
-        usart::{
+        peripheral::usart::{
             UCSRA_TXC, UCSRA_U2X, UCSRA_UDRE, UCSRB_TXCIE, UCSRB_TXEN, UCSRB_UCSZ2, UCSRB_UDRIE,
             UCSRC_UCSZ0, UCSRC_UCSZ1, UCSRC_USBS, USART0_CONFIG,
         },

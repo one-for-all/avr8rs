@@ -4,10 +4,10 @@ use crate::{
     cpu::CPU,
     instruction::avr_instruction,
     interrupt::avr_interrupt,
-    port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
+    peripheral::port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
+    peripheral::timer::{AVRTimer, TIMER_0_CONFIG},
+    peripheral::usart::{AVRUSART, USART0_CONFIG},
     program::load_hex,
-    timer::{AVRTimer, TIMER_0_CONFIG},
-    usart::{AVRUSART, USART0_CONFIG},
 };
 
 pub const DEFAULT_FREQ: usize = 16_000_000; // 16Mhz

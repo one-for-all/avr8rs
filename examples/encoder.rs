@@ -25,5 +25,6 @@ fn main() {
         let delta_cycles = (runner.atmega328p.cpu.cycles - cycles) as usize;
 
         s += delta_cycles;
+        println!("{:?}", runner.atmega328p.port_pin_state("B", 0));
     }
 }

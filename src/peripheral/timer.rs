@@ -259,7 +259,7 @@ pub const TIMER_0_CONFIG: AVRTimerConfig = AVRTimerConfig {
 mod timer_tests {
     use crate::{
         atmega328p::{ATMega328P, DEFAULT_FREQ},
-        timer::{CS00, CS01, TIMER_0_CONFIG},
+        peripheral::timer::{CS00, CS01, TIMER_0_CONFIG},
     };
 
     #[test]

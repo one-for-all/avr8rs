@@ -1,4 +1,4 @@
-use crate::{cpu::CPU, timer::AVRTimerConfig};
+use crate::{cpu::CPU, peripheral::timer::AVRTimerConfig};
 
 pub const MAX_INTERRUPTS: usize = 128; // Enough for ATMega2560
 

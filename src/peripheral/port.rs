@@ -180,7 +180,7 @@ pub const PORTD_CONFIG: AVRPortConfig = AVRPortConfig {
 mod port_tests {
     use crate::{
         atmega328p::{ATMega328P, DEFAULT_FREQ},
-        port::{PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG, PinState},
+        peripheral::port::{PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG, PinState},
     };
 
     #[test]

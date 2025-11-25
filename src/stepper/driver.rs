@@ -1,4 +1,4 @@
-use crate::{Float, port::PinState};
+use crate::{Float, peripheral::port::PinState};
 
 pub struct StepperDriver {
     pub step_pin_state: PinState,
