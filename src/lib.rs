@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use std::f64;
 
 pub mod atmega328p;

@@ -4,9 +4,12 @@ use crate::{
     cpu::CPU,
     instruction::avr_instruction,
     interrupt::avr_interrupt,
-    peripheral::port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
-    peripheral::timer::{AVRTimer, TIMER_0_CONFIG},
-    peripheral::usart::{AVRUSART, USART0_CONFIG},
+    peripheral::{
+        i2c::{AVRI2C, TWI_CONFIG, TWIConfig},
+        port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
+        timer::{AVRTimer, TIMER_0_CONFIG},
+        usart::{AVRUSART, USART0_CONFIG},
+    },
     program::load_hex,
 };
 
@@ -22,6 +25,7 @@ pub struct ATMega328P {
     pub timer0: AVRTimer,
     pub usart: AVRUSART,
     pub ports: [AVRIOPort; 3], // B, C, D
+    pub i2c: AVRI2C,
 
     // data hooks
     pub read_hooks: HashMap<u16, PeripheralMemoryReadHook>,
@@ -38,6 +42,7 @@ impl ATMega328P {
         let port_b = AVRIOPort::new(PORTB_CONFIG);
         let port_c = AVRIOPort::new(PORTC_CONFIG);
         let port_d = AVRIOPort::new(PORTD_CONFIG);
+        let i2c = AVRI2C::new(TWI_CONFIG, freq_hz);
 
         let mut read_hooks: HashMap<u16, PeripheralMemoryReadHook> = HashMap::new();
 
@@ -70,6 +75,7 @@ impl ATMega328P {
             timer0,
             usart,
             ports,
+            i2c,
             read_hooks,
             write_hooks,
         };
