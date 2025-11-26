@@ -771,6 +771,14 @@ pub fn avr_instruction(atmega: &mut ATMega328P) {
             atmega.cpu.set_data_u16(30, z + 1);
             atmega.cpu.cycles += 1;
         }
+        instructions::Instruction::STZ_DEC => {
+            /* STZ(DEC), 1001 001r rrrr 0010 */
+            let i = atmega.cpu.get_data((opcode & 0x1f0) >> 4);
+            let z = atmega.cpu.get_data_u16(30) - 1;
+            atmega.cpu.set_data_u16(30, z);
+            atmega.write_data(z, i);
+            atmega.cpu.cycles += 1;
+        }
         instructions::Instruction::STDZ => {
             /* STDZ, 10q0 qq1r rrrr 0qqq */
             atmega.write_data_with_mask(

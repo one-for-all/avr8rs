@@ -208,6 +208,7 @@ impl ATMega328P {
         let twcr_value = self.cpu.data[self.i2c.config.TWCR as usize];
         let twdr_value = self.cpu.data[self.i2c.config.TWDR as usize];
         let status = self.i2c.status(&self.cpu.data);
+        // println!("status: {:02x}", status);
         if twcr_value & TWCR_TWSTA != 0 {
             self.i2c.busy = true;
             if let Some(i2c_bus) = i2c_bus {
@@ -248,7 +249,7 @@ impl ATMega328P {
             if let Some(i2c_bus) = i2c_bus {
                 assert_eq!(i2c_bus.read, false);
                 if !self.i2c.wait_ack {
-                    i2c_bus.status = bus::I2CBusStatus::DATA;
+                    i2c_bus.status = bus::I2CBusStatus::DATA_AVAILABLE;
                     i2c_bus.data = twdr_value;
                     self.i2c.wait_ack = true;
                     self.cpu.add_clock_event(
@@ -270,9 +271,9 @@ impl ATMega328P {
             self.i2c.busy = true;
             if let Some(i2c_bus) = i2c_bus {
                 assert_eq!(i2c_bus.read, true);
-                i2c_bus.status = bus::I2CBusStatus::DATA;
                 self.cpu.data[self.i2c.config.TWDR as usize] = i2c_bus.data; // read data
                 let ack = twcr_value & TWCR_TWEA != 0;
+                i2c_bus.status = bus::I2CBusStatus::DATA_REQUEST;
                 i2c_bus.acked = ack;
                 self.i2c.complete_read(ack, &mut self.cpu);
             } else {

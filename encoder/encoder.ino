@@ -8,11 +8,15 @@ void setup() {
     Serial.begin(115200); // Start the serial communication
     Wire.begin();         // Start the I2C communication
 
-    if (ams5600.detectMagnet()) {
-        Serial.println("detected magnet");
-    } else {
-        Serial.println("no magnet");
+    while (!ams5600.detectMagnet()) {
+        Serial.println("[AS5600] Waiting for magnet...");
+        delay(1000); // Wait for the magnet to be detected
     }
+
+    // Print the current magnitude of the magnet
+    Serial.println("[AS5600] Current magnitude: ");
+    Serial.println(ams5600.getMagnitude());
+
 }
 
 void loop() {

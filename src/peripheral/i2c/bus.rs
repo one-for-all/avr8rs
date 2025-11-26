@@ -1,10 +1,12 @@
 #[derive(Debug, PartialEq)]
+#[allow(non_camel_case_types)]
 pub enum I2CBusStatus {
     IDLE,
     START,
     STOP,
     ADDRESS,
-    DATA,
+    DATA_REQUEST,
+    DATA_AVAILABLE, // Data has already been sent, either on write or read
 }
 
 pub struct I2CBus {
