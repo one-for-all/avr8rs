@@ -5,7 +5,7 @@ use crate::{
     instruction::avr_instruction,
     interrupt::avr_interrupt,
     peripheral::{
-        i2c::{AVRI2C, TWI_CONFIG, TWIConfig},
+        i2c::{AVRI2C, TWI_CONFIG, TWIConfig, bus::I2CBus},
         port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
         timer::{AVRTimer, TIMER_0_CONFIG},
         usart::{AVRUSART, USART0_CONFIG},
@@ -35,14 +35,14 @@ pub struct ATMega328P {
 impl ATMega328P {
     pub fn new(hex: &str, freq_hz: usize) -> Self {
         let prog = load_hex(&hex);
-        let cpu = CPU::new(prog);
+        let mut cpu = CPU::new(prog);
 
         let timer0 = AVRTimer::new(TIMER_0_CONFIG);
         let usart = AVRUSART::new(USART0_CONFIG, freq_hz);
         let port_b = AVRIOPort::new(PORTB_CONFIG);
         let port_c = AVRIOPort::new(PORTC_CONFIG);
         let port_d = AVRIOPort::new(PORTD_CONFIG);
-        let i2c = AVRI2C::new(TWI_CONFIG, freq_hz);
+        let i2c = AVRI2C::new(TWI_CONFIG, freq_hz, &mut cpu);
 
         let mut read_hooks: HashMap<u16, PeripheralMemoryReadHook> = HashMap::new();
 
@@ -69,6 +69,9 @@ impl ATMega328P {
         port_d.add_port_handler(&mut write_hooks, 2);
 
         let ports = [port_b, port_c, port_d];
+
+        // I2C interface
+        i2c.add_TWCR_write_hook(&mut write_hooks);
 
         let atmega328p = Self {
             cpu,
@@ -110,12 +113,12 @@ impl ATMega328P {
         self.cpu.set_data(addr, data);
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self, i2c_bus: Option<&mut I2CBus>) {
         avr_instruction(self);
-        self.tick();
+        self.tick(i2c_bus);
     }
 
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self, i2c_bus: Option<&mut I2CBus>) {
         if let Some(event) = self.cpu.next_clock_event.take() {
             // println!(
             //     "event cycles: {}, cpu cycles: {}",
@@ -123,7 +126,7 @@ impl ATMega328P {
             // );
             if event.cycles <= self.cpu.cycles {
                 self.cpu.next_clock_event = event.next;
-                (event.callback)(self, true, false);
+                (event.callback)(self, i2c_bus, true, false);
             } else {
                 self.cpu.next_clock_event = Some(event);
             }

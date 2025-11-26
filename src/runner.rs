@@ -2,6 +2,7 @@ use crate::{
     atmega328p::{ATMega328P, DEFAULT_FREQ},
     cpu::CPU,
     instruction::avr_instruction,
+    peripheral::i2c::bus::I2CBus,
     program::load_hex,
 };
 
@@ -16,7 +17,7 @@ impl AVRRunner {
         AVRRunner { atmega328p }
     }
 
-    pub fn step(&mut self) {
-        self.atmega328p.step();
+    pub fn step(&mut self, i2c_bus: Option<&mut I2CBus>) {
+        self.atmega328p.step(i2c_bus);
     }
 }

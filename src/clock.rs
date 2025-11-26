@@ -1,12 +1,13 @@
-use crate::{atmega328p::ATMega328P, cpu::CPU};
+use crate::{atmega328p::ATMega328P, cpu::CPU, peripheral::i2c::bus::I2CBus};
 
 #[derive(Clone)]
 pub enum AVRClockEventType {
     Count,
     USART,
+    I2C,
 }
 
-pub type AVRClockEventCallback = Box<dyn Fn(&mut ATMega328P, bool, bool)>;
+pub type AVRClockEventCallback = Box<dyn Fn(&mut ATMega328P, Option<&mut I2CBus>, bool, bool)>;
 
 pub struct AVRClockEventEntry {
     pub cycles: u32,

@@ -244,6 +244,15 @@ impl CPU {
         }
     }
 
+    /// Clears the interrupt if the flag is set in register value
+    pub fn clear_interrupt_by_flag(&mut self, interrupt: &AVRInterruptConfig, register_value: u8) {
+        let flag_mask = interrupt.flag_mask;
+        if register_value & flag_mask != 0 {
+            self.data[interrupt.flag_register as usize] &= !flag_mask;
+            self.clear_interrupt(interrupt, true);
+        }
+    }
+
     pub fn sreg(&self) -> u8 {
         self.data[SREG]
     }

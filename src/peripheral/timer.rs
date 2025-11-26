@@ -5,6 +5,7 @@ use crate::{
     clock::AVRClockEventType,
     cpu::CPU,
     interrupt::AVRInterruptConfig,
+    peripheral::i2c::bus::I2CBus,
     ternary,
 };
 
@@ -95,7 +96,7 @@ impl AVRTimer {
         read_hooks.insert(
             self.config.TCNT as u16,
             Box::new(|atmega, addr| {
-                atmega.count(false, false);
+                atmega.count(None, false, false);
                 let data = (atmega.timer0.tcnt & 0xff) as u8;
                 atmega.cpu.set_data(addr, data);
                 data
@@ -172,7 +173,7 @@ impl ATMega328P {
         self.timer0.cs(&self.cpu)
     }
 
-    pub fn count(&mut self, reschedule: bool, external: bool) {
+    pub fn count(&mut self, _: Option<&mut I2CBus>, reschedule: bool, external: bool) {
         // println!("count");
         // println!("cpu cycles: {}", self.cycles);
         let divider = self.timer0.divider;
@@ -270,9 +271,9 @@ mod timer_tests {
         // Act
         atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00); // set prescaler to 1
         atmega.cpu.cycles = 1;
-        atmega.tick(); // first tick updates divider
+        atmega.tick(None); // first tick updates divider
         atmega.cpu.cycles = 1 + 1; // emulate cycles increment by instruction
-        atmega.tick(); // increment count
+        atmega.tick(None); // increment count
 
         // Assert
         let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
@@ -287,9 +288,9 @@ mod timer_tests {
         // Act
         atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS01 | CS00); // set prescaler to 64
         atmega.cpu.cycles = 1;
-        atmega.tick(); // first tick updates divider
+        atmega.tick(None); // first tick updates divider
         atmega.cpu.cycles = 1 + 64; // emulate cycles increment by instruction
-        atmega.tick(); // increment count
+        atmega.tick(None); // increment count
 
         // Assert
         let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
@@ -304,9 +305,9 @@ mod timer_tests {
         // Act
         atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, 0); // set prescaler to 64
         atmega.cpu.cycles = 1;
-        atmega.tick(); // first tick updates divider
+        atmega.tick(None); // first tick updates divider
         atmega.cpu.cycles = 1_000; // set to a high cycles count
-        atmega.tick();
+        atmega.tick(None);
 
         // Assert
         let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
@@ -324,7 +325,7 @@ mod timer_tests {
         atmega.write_data(TIMER_0_CONFIG.TCNT as u16, top);
         atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00); // Set prescaler to 1
         atmega.cpu.cycles = 1;
-        atmega.tick();
+        atmega.tick(None);
         // count value set, and overflow flag not yet
         let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, top);
@@ -334,7 +335,7 @@ mod timer_tests {
         );
 
         atmega.cpu.cycles += 1;
-        atmega.tick();
+        atmega.tick(None);
         // count wraps, and overflow flag set
         let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, 0);
@@ -355,7 +356,7 @@ mod timer_tests {
         atmega.write_data(TIMER_0_CONFIG.TCNT as u16, near_top);
         atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00); // Set prescaler to 1
         atmega.cpu.cycles = 1;
-        atmega.tick();
+        atmega.tick(None);
         // count value set, and overflow flag not yet
         let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, near_top);
@@ -365,7 +366,7 @@ mod timer_tests {
         );
 
         atmega.cpu.cycles += 4;
-        atmega.tick();
+        atmega.tick(None);
         // count wraps, and overflow flag set
         let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
         assert_eq!(count, 2);
@@ -385,11 +386,11 @@ mod timer_tests {
         atmega.write_data(TIMER_0_CONFIG.TCNT as u16, top);
         atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00);
         atmega.cpu.cycles = 1;
-        atmega.tick();
+        atmega.tick(None);
         atmega.write_data(TIMER_0_CONFIG.TIMSK as u16, TIMER_0_CONFIG.TOIE); // enable overflow interrupt
         atmega.cpu.set_sreg(1 << 7); // enable global interrupt
         atmega.cpu.cycles = 2;
-        atmega.tick();
+        atmega.tick(None);
 
         // Assert
         let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
@@ -412,11 +413,11 @@ mod timer_tests {
         atmega.write_data(TIMER_0_CONFIG.TCNT as u16, top);
         atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00);
         atmega.cpu.cycles = 1;
-        atmega.tick();
+        atmega.tick(None);
         atmega.write_data(TIMER_0_CONFIG.TIMSK as u16, TIMER_0_CONFIG.TOIE); // enable overflow interrupt
         atmega.cpu.set_sreg(0); // disable global interrupt
         atmega.cpu.cycles = 2;
-        atmega.tick();
+        atmega.tick(None);
 
         // Assert
         let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);
@@ -440,11 +441,11 @@ mod timer_tests {
         atmega.write_data(TIMER_0_CONFIG.TCNT as u16, top);
         atmega.write_data(TIMER_0_CONFIG.TCCRB as u16, CS00);
         atmega.cpu.cycles = 1;
-        atmega.tick();
+        atmega.tick(None);
         atmega.write_data(TIMER_0_CONFIG.TIMSK as u16, 0); // enable overflow interrupt
         atmega.cpu.set_sreg(1 << 7); // enable global interrupt
         atmega.cpu.cycles = 2;
-        atmega.tick();
+        atmega.tick(None);
 
         // Assert
         let count = atmega.read_data(TIMER_0_CONFIG.TCNT as u16);

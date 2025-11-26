@@ -36,7 +36,7 @@ fn main() {
         // print!("cycle: {} ", s);
 
         let cycles = runner.atmega328p.cpu.cycles;
-        runner.step();
+        runner.step(None);
         let delta_cycles = (runner.atmega328p.cpu.cycles - cycles) as usize;
 
         for _ in 0..delta_cycles {
