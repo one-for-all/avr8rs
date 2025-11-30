@@ -7,7 +7,7 @@ use avr8rs::{
     Float,
     plot::plot,
     runner::AVRRunner,
-    stepper::{Stepper, driver::StepperDriver},
+    stepper::{StepperMotor, driver::StepperDriver},
 };
 
 fn main() {
@@ -18,8 +18,8 @@ fn main() {
 
     let mut runner = AVRRunner::new(&buf);
 
-    let mut stepper = Stepper::new();
     let mut driver = StepperDriver::new();
+    let mut stepper = StepperMotor::new();
 
     let mut data: Vec<Float> = vec![];
 

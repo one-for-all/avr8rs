@@ -17,12 +17,12 @@ pub struct StepperVoltages {
 }
 
 /// Simulate stepper motor
-pub struct Stepper {
+pub struct StepperMotor {
     pub omega: Float,
     pub theta: Float,
 }
 
-impl Stepper {
+impl StepperMotor {
     pub fn new() -> Self {
         Self {
             omega: 0.,
@@ -30,15 +30,17 @@ impl Stepper {
         }
     }
 
-    fn electromagnetic_torque(&self, ia: Float, ib: Float) -> Float {
+    fn eletromagnetic_torque(&self, ia: Float, ib: Float) -> Float {
         let theta = self.theta;
         KT * (-ia * (P as Float * theta).sin() + ib * (P as Float * theta).cos())
     }
 
-    pub fn step(&mut self, dt: Float, ia: Float, ib: Float, load_torque: Float) {
-        let torque = self.electromagnetic_torque(ia, ib);
+    pub fn torque(&self, ia: Float, ib: Float) -> Float {
+        self.eletromagnetic_torque(ia, ib) - B * self.omega
+    }
 
-        let domega_dt = (torque - B * self.omega - load_torque) / J;
+    pub fn step(&mut self, dt: Float, ia: Float, ib: Float, load_torque: Float) {
+        let domega_dt = (self.torque(ia, ib) - load_torque) / J;
 
         self.omega += domega_dt * dt;
         self.theta += self.omega * dt;
@@ -47,7 +49,7 @@ impl Stepper {
     pub fn step_voltage(&mut self, dt: Float, voltages: &StepperVoltages, load_torque: Float) {
         let ia = self.current(voltages.ap, voltages.am);
         let ib = self.current(voltages.bp, voltages.bm);
-        let torque = self.electromagnetic_torque(ia, ib);
+        let torque = self.eletromagnetic_torque(ia, ib);
 
         let domega_dt = (torque - B * self.omega - load_torque) / J;
 
@@ -66,13 +68,13 @@ mod stepper_tests {
     use crate::{
         Float, PI, assert_close,
         plot::plot,
-        stepper::{P, Stepper},
+        stepper::{P, StepperMotor},
     };
 
     #[test]
     fn full_step() {
         // Arrange
-        let mut stepper = Stepper::new();
+        let mut stepper = StepperMotor::new();
         let full_step = PI / 2.0 / P as Float; // angle turned by a full-step
         stepper.theta = -full_step / 2.;
         let load_torque = 0.;
@@ -99,7 +101,7 @@ mod stepper_tests {
     #[test]
     fn half_step() {
         // Arrange
-        let mut stepper = Stepper::new();
+        let mut stepper = StepperMotor::new();
         let full_step = PI / 2.0 / P as Float;
         let half_step = full_step / 2.0;
         let half_step_current = 1. / (2.0 as Float).sqrt();
