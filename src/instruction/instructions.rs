@@ -57,6 +57,7 @@ pub enum Instruction {
     SBC,
     SBCI,
     SBI,
+    SBIC,
     SBIS,
     SBIW,
     SBR,
@@ -195,6 +196,8 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::SBCI
     } else if opcode & 0xff00 == 0x9a00 {
         Instruction::SBI
+    } else if opcode & 0xff00 == 0x9900 {
+        Instruction::SBIC
     } else if opcode & 0xff00 == 0x9b00 {
         Instruction::SBIS
     } else if opcode & 0xff00 == 0x9700 {

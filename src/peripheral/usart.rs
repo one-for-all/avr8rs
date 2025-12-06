@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     atmega328p::{ATMega328P, PeripheralMemoryWriteHook},
     cpu::CPU,
+    flog,
     interrupt::AVRInterruptConfig,
     ternary,
 };
@@ -63,6 +64,7 @@ impl AVRUSART {
             flag_mask: UCSRA_UDRE,
             enable_register: config.UCSRB as u16,
             enable_mask: UCSRB_UDRIE,
+            inverse_flag: false,
         };
         let txc = AVRInterruptConfig {
             address: config.tx_complete_interrupt,
@@ -70,6 +72,7 @@ impl AVRUSART {
             flag_mask: UCSRA_TXC,
             enable_register: config.UCSRB as u16,
             enable_mask: UCSRB_TXCIE,
+            inverse_flag: false,
         };
         Self {
             config,
@@ -109,7 +112,16 @@ impl AVRUSART {
             Box::new(|atmega, value, _, _, _| {
                 atmega.usart.buf.push(value);
                 if value == b'\n' || value == b'\r' {
-                    print!("{}", str::from_utf8(&atmega.usart.buf).unwrap());
+                    if atmega.usart.buf.len() > 1 {
+                        // ignore "\r" left from"\n\r"
+                        flog!(
+                            "{}",
+                            str::from_utf8(&atmega.usart.buf)
+                                .unwrap()
+                                .replace("\n", "")
+                                .replace("\r", "")
+                        );
+                    }
                     atmega.usart.buf = Vec::new();
                 }
 

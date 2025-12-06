@@ -5,6 +5,7 @@ use crate::{
     instruction::avr_instruction,
     interrupt::avr_interrupt,
     peripheral::{
+        eeprom::{AVREEPROM, AVREEPROMConfig, EEPROM_CONFIG},
         i2c::{AVRI2C, TWI_CONFIG, TWIConfig, bus::I2CBus},
         port::{AVRIOPort, PORTB_CONFIG, PORTC_CONFIG, PORTD_CONFIG},
         timer::{AVRTimer, TIMER_0_CONFIG},
@@ -26,6 +27,7 @@ pub struct ATMega328P {
     pub usart: AVRUSART,
     pub ports: [AVRIOPort; 3], // B, C, D
     pub i2c: AVRI2C,
+    pub eeprom: AVREEPROM,
 
     // data hooks
     pub read_hooks: HashMap<u16, PeripheralMemoryReadHook>,
@@ -43,6 +45,7 @@ impl ATMega328P {
         let port_c = AVRIOPort::new(PORTC_CONFIG);
         let port_d = AVRIOPort::new(PORTD_CONFIG);
         let i2c = AVRI2C::new(TWI_CONFIG, freq_hz, &mut cpu);
+        let eeprom = AVREEPROM::new(EEPROM_CONFIG, 1024);
 
         let mut read_hooks: HashMap<u16, PeripheralMemoryReadHook> = HashMap::new();
 
@@ -73,12 +76,16 @@ impl ATMega328P {
         // I2C interface
         i2c.add_TWCR_write_hook(&mut write_hooks);
 
+        // EEPROM
+        eeprom.add_EECR_write_hook(&mut write_hooks);
+
         let atmega328p = Self {
             cpu,
             timer0,
             usart,
             ports,
             i2c,
+            eeprom,
             read_hooks,
             write_hooks,
         };

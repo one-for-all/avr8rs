@@ -2,9 +2,9 @@ use crate::Float;
 
 pub mod driver;
 
-const KT: Float = 1.0;
+const KT: Float = 10.0; // 1.0
 const J: Float = 5.4e-5; // rotor inertia
-const B: Float = 5e-2; // 2e-2 // viscous friction coefficient [N*m*s/rad]
+const B: Float = 5e-1; // 5e-2 // viscous friction coefficient [N*m*s/rad]
 const P: usize = 50; // pole-pairs
 
 const I_MAX: Float = 1.0;
@@ -82,7 +82,7 @@ mod stepper_tests {
         // Act
         let mut data = vec![];
         let t_final = 1e-2;
-        let dt = 1e-3;
+        let dt = 1e-4;
         let n_steps = (t_final / dt) as usize;
         for _ in 0..n_steps {
             data.push(stepper.theta);
@@ -110,7 +110,7 @@ mod stepper_tests {
         // Act
         let mut data = vec![];
         let t_final = 1e-2;
-        let dt = 1e-3;
+        let dt = 1e-4;
         let n_steps = (t_final / dt) as usize;
         for _ in 0..n_steps {
             data.push(stepper.theta);

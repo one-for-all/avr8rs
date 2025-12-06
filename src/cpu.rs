@@ -187,7 +187,11 @@ impl CPU {
     pub fn set_interrupt_flag(&mut self, interrupt: AVRInterruptConfig) {
         let flag_register = interrupt.flag_register;
         let flag_mask = interrupt.flag_mask;
-        self.data[flag_register as usize] |= flag_mask;
+        if interrupt.inverse_flag {
+            self.data[flag_register as usize] &= !flag_mask;
+        } else {
+            self.data[flag_register as usize] |= flag_mask;
+        }
         // println!("set interrupt flag");
 
         // println!(
@@ -203,7 +207,8 @@ impl CPU {
     pub fn update_interrupt_enable(&mut self, interrupt: AVRInterruptConfig, register_value: u8) {
         if register_value & interrupt.enable_mask != 0 {
             let bit_set = self.get_data(interrupt.flag_register) & interrupt.flag_mask;
-            if bit_set != 0 {
+            if (interrupt.inverse_flag && bit_set == 0) || (!interrupt.inverse_flag && bit_set != 0)
+            {
                 self.queue_interrupt(interrupt);
             }
         } else {

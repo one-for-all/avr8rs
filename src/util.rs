@@ -23,3 +23,21 @@ macro_rules! assert_close {
         );
     };
 }
+
+#[macro_export]
+macro_rules! flog {
+    ($($t:tt)*) => {
+        // #[cfg(debug_assertions)]
+        {
+            #[cfg(target_arch = "wasm32")]
+            {
+                use web_sys::console;
+                console::log_1(&format!($($t)*).into());
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                println!($($t)*);
+            }
+        }
+    };
+}

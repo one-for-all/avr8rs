@@ -5,6 +5,7 @@ use std::{
 };
 
 use avr8rs::{
+    atmega328p::DEFAULT_FREQ,
     encoder::AS5600,
     peripheral::i2c::{self, bus::I2CBus},
     runner::AVRRunner,

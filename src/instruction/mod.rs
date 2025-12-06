@@ -644,6 +644,20 @@ pub fn avr_instruction(atmega: &mut ATMega328P) {
             atmega.write_data_with_mask(target, data, mask);
             atmega.cpu.cycles += 1;
         }
+        instructions::Instruction::SBIC => {
+            /* SBIC, 1001 1001 AAAA Abbb */
+            let value = atmega.read_data(((opcode & 0xf8) >> 3) + 32);
+            if value & (1 << (opcode & 7)) == 0 {
+                let next_opcode = atmega.cpu.prog_mem[(atmega.cpu.pc + 1) as usize];
+                let skip_size = if is_two_word_instruction(next_opcode) {
+                    2
+                } else {
+                    1
+                };
+                atmega.cpu.cycles += skip_size;
+                atmega.cpu.pc += skip_size;
+            }
+        }
         instructions::Instruction::SBIS => {
             /* SBIS, 1001 1011 AAAA Abbb */
             let value = atmega.read_data(((opcode & 0xf8) >> 3) + 32);

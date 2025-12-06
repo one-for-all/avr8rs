@@ -67,6 +67,7 @@ impl AVRTimer {
             enable_mask: config.TOIE,
             flag_register: config.TIFR as u16,
             flag_mask: config.TOV,
+            inverse_flag: false,
         };
         AVRTimer {
             max: 0xff, // config.bits === 16 ? 0xffff : 0xff;

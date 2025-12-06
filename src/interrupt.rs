@@ -9,6 +9,8 @@ pub struct AVRInterruptConfig {
     pub enable_mask: u8,
     pub flag_register: u16,
     pub flag_mask: u8,
+    // TODO(EEPROM): add constant flag
+    pub inverse_flag: bool,
 }
 
 pub fn avr_interrupt(cpu: &mut CPU, addr: u8) {

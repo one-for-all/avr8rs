@@ -71,6 +71,7 @@ impl AVRI2C {
             flag_mask: TWCR_TWINT,
             enable_register: config.TWCR as u16,
             enable_mask: TWCR_TWIE,
+            inverse_flag: false,
         };
         let mut i2c = Self {
             config,

@@ -13,6 +13,8 @@ pub struct AVRRunner {
 
 impl AVRRunner {
     pub fn new(hex: &str) -> Self {
+        // Arduino is normally set to run at 16MHz.
+        // To use clock with different Hz, need to update firmware as well.
         let atmega328p = ATMega328P::new(hex, DEFAULT_FREQ);
         AVRRunner { atmega328p }
     }

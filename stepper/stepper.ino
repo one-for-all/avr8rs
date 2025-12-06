@@ -8,7 +8,8 @@
 AccelStepper stepper(AccelStepper::DRIVER, stepPin, dirPin, 0, 0, false);
 
 // #define stepsPerRevolution 200 * 8 // 200 steps per revolution * 8 microsteps
-#define stepsPerRevolution 200 * 2 // 200 steps per revolution * 2 microsteps
+// #define stepsPerRevolution 200 * 2 // 200 steps per revolution * 2 microsteps
+#define stepsPerRevolution 200 * 4 // 200 steps per revolution * 2 microsteps
 
 void setup()
 {

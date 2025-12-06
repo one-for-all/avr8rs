@@ -1,3 +1,4 @@
+pub mod eeprom;
 pub mod i2c;
 pub mod port;
 pub mod timer;

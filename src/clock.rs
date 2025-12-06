@@ -5,6 +5,8 @@ pub enum AVRClockEventType {
     Count,
     USART,
     I2C,
+    EEPROMFinish,        // TODO(EEPROM): better naming
+    EEPROMWriteComplete, // TODO(EEPROM): better naming
 }
 
 pub type AVRClockEventCallback = Box<dyn Fn(&mut ATMega328P, Option<&mut I2CBus>, bool, bool)>;

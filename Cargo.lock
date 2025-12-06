@@ -28,6 +28,7 @@ name = "avr8rs"
 version = "0.1.0"
 dependencies = [
  "plotters",
+ "web-sys",
 ]
 
 [[package]]

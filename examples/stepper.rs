@@ -5,6 +5,7 @@ use std::{
 
 use avr8rs::{
     Float,
+    atmega328p::DEFAULT_FREQ,
     plot::plot,
     runner::AVRRunner,
     stepper::{StepperMotor, driver::StepperDriver},
@@ -23,7 +24,7 @@ fn main() {
 
     let mut data: Vec<Float> = vec![];
 
-    let final_time = 2.1; //2e-5; //
+    let final_time = 2.5; //2e-5; //
     let Hz = 16e6; // 16 MHz
     let dt = 1. / Hz;
     let n_steps = (final_time / dt) as usize;
