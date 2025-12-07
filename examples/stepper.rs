@@ -19,7 +19,7 @@ fn main() {
 
     let mut runner = AVRRunner::new(&buf);
 
-    let mut driver = StepperDriver::new();
+    let mut driver = StepperDriver::new(4);
     let mut stepper = StepperMotor::new();
 
     let mut data: Vec<Float> = vec![];
@@ -43,7 +43,7 @@ fn main() {
         for _ in 0..delta_cycles {
             let step_pin = runner.atmega328p.port_pin_state("D", 3);
             let dir_pin = runner.atmega328p.port_pin_state("D", 2);
-            driver.step(step_pin, dir_pin);
+            driver.step(step_pin, &dir_pin);
         }
 
         if s % 100 == 0 {
