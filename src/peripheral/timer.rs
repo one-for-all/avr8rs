@@ -153,7 +153,6 @@ impl AVRTimer {
         write_hooks.insert(
             self.config.TIMSK as u16,
             Box::new(|atmega, value, _, _, _| {
-                println!("TIMSK hook");
                 atmega.cpu.update_interrupt_enable(atmega.timer0.ovf, value);
                 false
             }),
