@@ -1,9 +1,6 @@
 use crate::{
     atmega328p::{ATMega328P, DEFAULT_FREQ},
-    cpu::CPU,
-    instruction::avr_instruction,
     peripheral::i2c::bus::I2CBus,
-    program::load_hex,
 };
 
 pub struct AVRRunner {
