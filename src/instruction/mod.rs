@@ -726,6 +726,16 @@ pub fn avr_instruction(atmega: &mut ATMega328P) {
                 atmega.cpu.pc += skip_size;
             }
         }
+        instructions::Instruction::STDY => {
+            /* STDY, 10q0 qq1r rrrr 1qqq */
+            atmega.write_data_with_mask(
+                atmega.cpu.get_data_u16(28)
+                    + ((opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8)),
+                atmega.cpu.get_data((opcode & 0x1f0) >> 4),
+                0xff,
+            );
+            atmega.cpu.cycles += 1;
+        }
         instructions::Instruction::STS => {
             /* STS, 1001 001d dddd 0000 kkkk kkkk kkkk kkkk */
             let value = atmega.cpu.get_data((opcode & 0x1f0) >> 4);
@@ -758,13 +768,11 @@ pub fn avr_instruction(atmega: &mut ATMega328P) {
             atmega.write_data_with_mask(x, i, 0xff);
             atmega.cpu.cycles += 1;
         }
-        instructions::Instruction::STDY => {
-            /* STDY, 10q0 qq1r rrrr 1qqq */
-            atmega.write_data_with_mask(
-                atmega.cpu.get_data_u16(28)
-                    + ((opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8)),
+        instructions::Instruction::STY => {
+            /* STY, 1000 001r rrrr 1000 */
+            atmega.write_data(
+                atmega.cpu.get_data_u16(28),
                 atmega.cpu.get_data((opcode & 0x1f0) >> 4),
-                0xff,
             );
             atmega.cpu.cycles += 1;
         }

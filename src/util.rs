@@ -41,3 +41,12 @@ macro_rules! flog {
         }
     };
 }
+
+pub fn to_binary_str(v: u16) -> String {
+    format!("{:016b}", v)
+        .as_bytes()
+        .chunks(4)
+        .map(|c| std::str::from_utf8(c).unwrap())
+        .collect::<Vec<_>>()
+        .join("_")
+}

@@ -1,3 +1,5 @@
+use crate::util::to_binary_str;
+
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
 pub enum Instruction {
@@ -63,11 +65,12 @@ pub enum Instruction {
     SBR,
     SBRC,
     SBRS,
+    STDY,
     STS,
     STX,
     STX_INC,
     STX_DEC,
-    STDY,
+    STY,
     STZ,
     STZ_INC,
     STZ_DEC,
@@ -208,6 +211,10 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::SBRC
     } else if opcode & 0xfe08 == 0xfe00 {
         Instruction::SBRS
+    } else if opcode & 0xd208 == 0x8208
+        && (opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8) != 0
+    {
+        Instruction::STDY
     } else if opcode & 0xfe0f == 0x9200 {
         Instruction::STS
     } else if opcode & 0xfe0f == 0x920c {
@@ -216,10 +223,8 @@ pub fn decode(opcode: u16) -> Instruction {
         Instruction::STX_INC
     } else if opcode & 0xfe0f == 0x920e {
         Instruction::STX_DEC
-    } else if opcode & 0xd208 == 0x8208
-        && (opcode & 7) | ((opcode & 0xc00) >> 7) | ((opcode & 0x2000) >> 8) != 0
-    {
-        Instruction::STDY
+    } else if opcode & 0xfe0f == 0x8208 {
+        Instruction::STY
     } else if opcode & 0xfe0f == 0x8200 {
         Instruction::STZ
     } else if opcode & 0xfe0f == 0x9201 {
@@ -235,7 +240,7 @@ pub fn decode(opcode: u16) -> Instruction {
     } else if opcode & 0xf000 == 0x5000 {
         Instruction::SUBI
     } else {
-        panic!("instruction not implemented: {:#018b}", opcode)
+        panic!("instruction not implemented: {}", to_binary_str(opcode))
     }
 }
 
